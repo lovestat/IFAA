@@ -1,2 +1,0 @@
-write.csv(dataC, "dataC.csv")
-write.csv(dataM, "dataM.csv")

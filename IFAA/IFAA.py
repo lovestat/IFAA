@@ -1,33 +1,52 @@
-# roman.py
-ROMAN_SYMBOLS = [
-    ('M', 1000), ('CM', 900),
-    ('D', 500), ('CD', 400),
-    ('C', 100), ('XC', 90),
-    ('L', 50), ('XL', 40),
-    ('X', 10), ('IX', 9),
-    ('V', 5), ('IV', 4),
-    ('I', 1)
-]
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import loadData
+import allUserDefinedFuncs
+import timeit
+import pandas as pd
 
 
-def roman_string_to_int(numeral_string):
-    """
-    Converts a Roman numeral string to integer form
-    """
-    total = 0
-    for symbol, value in ROMAN_SYMBOLS:
-        while numeral_string.startswith(symbol):
-            total += value
-            numeral_string = numeral_string[len(symbol):]
-    return total
+def haveDataM():
+    return loadData.load_dataM()
 
 
-def int_to_roman_string(number):
-    """
-    Converts a positive integer into a Roman numeral
-    """
-    result = ''
-    for symbol, value in ROMAN_SYMBOLS:
-        result += (number // value) * symbol
-        number = number % value
-    return result
+def haveDataC():
+    return loadData.load_dataC()
+
+
+def IFAA(
+    MicrobData,
+    CovData,
+    linkIDname,
+    testCov=None,
+    ctrlCov=None,
+    testMany=True,
+    ctrlMany=False,
+    nRef=40,
+    nRefMaxForEsti=2,
+    refTaxa=None,
+    adjust_method='BY',
+    fdrRate=0.15,
+    paraJobs=None,
+    bootB=500,
+    standardize=False,
+    sequentialRun=False,
+    refReadsThresh=0.2,
+    taxkeepThresh=1,
+    SDThresh=0.05,
+    SDquantilThresh=0,
+    balanceCut=0.2,
+    seed=1,
+    ):
+
+    allFunc = allUserDefinedFuncs.allUserFunc()
+    results = []
+    
+    start = timeit.default_timer()
+    stop = timeit.default_timer()
+    print('Time: ', stop - start) 
+    
+CovData = haveDataC()
+MicrobData = haveDataM()
+
+IFAA(haveDataM(), haveDataC(), linkIDname = "id")
