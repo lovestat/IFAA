@@ -1,17 +1,17 @@
-lapply(list.files("C:/Users/ss/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/R"),
-       function(x) source(glue::glue("C:/Users/ss/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/R/{x}")))
-load("C:/Users/ss/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/data/dataC.rda")
-load("C:/Users/ss/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/data/dataM.rda")
-
+lapply(list.files("~/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/R"),
+       function(x) source(glue::glue("~/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/R/{x}")))
+load("~/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/data/dataC.rda")
+load("~/Dropbox (UFL)/Project-PhD/withDrLi/IFAA/IFAA-master/data/dataM.rda")
 pacman::p_load(methods,future,Matrix,HDCI,qlcMatrix,
                expm,rlecuyer,mathjaxr,glmnet,stats,utils,foreach,
                tidyverse)
 
 MicrobData = dataM
 CovData = dataC
-
-IFAA(MicrobData = dataM, CovData = dataC, linkIDname = "id")
-
+linkIDname = "id"
+taxkeepThresh = 0
+testCov = c("v1", "v2")
+ctrlCov = "v3"
 ssfunc::eval_text(str_replace_all("ctrlCov=NULL,
   testMany=TRUE,
   ctrlMany=FALSE,

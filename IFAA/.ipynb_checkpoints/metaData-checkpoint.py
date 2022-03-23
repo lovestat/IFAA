@@ -8,10 +8,10 @@ import pandas as pd
 import warnings
 from utility import *
 
+metaData(haveDataM(), haveDataC(), "id", None, ["v1", "v2"], ["v3"])
 linkIDname = "id"
 testCov = ["v1", "v2"]
 ctrlCov = ["v3"]
-taxkeepThresh = 0
 
 def metaData(
         MicrobData,
@@ -87,54 +87,9 @@ def metaData(
     rm(allRawData)
     
     # check zero taxa and subjects with zero taxa reads
-    numTaxaNoReads = sum(colSums(Mdata_raw != 0) <= taxkeepThresh)
+    numTaxaNoReads = sum((Mdata_raw != 0).sum() <= taxkeepThresh)
     if numTaxaNoReads>0:
-        Mdata_raw=Mdata_raw.loc[:,colSums(Mdata_raw != 0) > taxkeepThresh]
+        Mdata_raw=Mdata_raw.loc[:,((Mdata_raw != 0).sum() > taxkeepThresh)]
         print("There are ",numTaxaNoReads," taxa without any sequencing reads before data merging, and excluded from the analysis")
     rm(numTaxaNoReads)
-    
-    numSubNoReads=sum(rowSums(Mdata_raw!=0)<=1)
-    if numSubNoReads>0:
-        print("There are ",numSubNoReads," subjects with zero or one sequencing read and excluded from the analysis")
-        subKeep= inv_bool(rowSums(Mdata_raw!=0)<=1)
-        Mdata_raw=Mdata_raw.loc[subKeep, :]
-        MdataWithId=MdataWithId.loc[subKeep, :]
-        rm(subKeep)
-    rm(numSubNoReads)
-    
-    Mdata=Mdata_raw
-    rm(Mdata_raw)
-    
-    microbName1=colnames(Mdata)
-    microbName=microbName1
-    newMicrobNames1=["microb" + str(i+1) for i in range(len(microbName))]
-    newMicrobNames=newMicrobNames1
-    results['Mprefix']="microb"    
-    Mdata=Mdata.rename(columns=dict( zip(microbName1, newMicrobNames) ))
-    
-    MdataWithId_new=cbind([MdataWithId.loc[:,linkIDname], Mdata])
-    
-    results['microbName']=microbName
-    results['newMicrobNames']=newMicrobNames
-    
-    if Covariates.isna().sum().sum() >0 :
-        print("Samples with missing covariate values are removed from the analysis.")
-    
 
-
-    
-    # dictionary
-Data = {'Name': ['GeeksForGeeks','Python'],
-          'Unique ID': ['900','450']}
- 
-# create a dataframe object
-df = pd.DataFrame(Data)
-
-pd.to_numeric()
-    
-df.
-    
-    
-    
-    
-    
