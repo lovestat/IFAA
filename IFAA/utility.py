@@ -6,12 +6,13 @@ Created on Tue Mar 22 19:39:15 2022
 @author: ss
 """
 import pandas as pd
+import numpy as np
 from itertools import compress
 
 def colnames(x):
     if not isinstance(x, pd.core.frame.DataFrame): 
         raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return x.columns.tolist()
+    return x.columns.to_numpy()
 
 def ncol(x):
     if not isinstance(x, pd.core.frame.DataFrame): 
@@ -46,3 +47,6 @@ def inv_bool(x):
 
 def cbind(x):
     return pd.concat(x, axis=1)
+
+def which(x):
+    return np.array([i for i, j in enumerate(x) if j])

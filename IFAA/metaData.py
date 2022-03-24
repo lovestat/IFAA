@@ -5,6 +5,7 @@ Created on Tue Mar 22 12:16:52 2022
 @author: ss
 """
 import pandas as pd
+import numpy as np
 import warnings
 from utility import *
 
@@ -107,7 +108,7 @@ def metaData(
     
     microbName1=colnames(Mdata)
     microbName=microbName1
-    newMicrobNames1=["microb" + str(i+1) for i in range(len(microbName))]
+    newMicrobNames1=np.array(["microb" + str(i+1) for i in range(len(microbName))])
     newMicrobNames=newMicrobNames1
     results['Mprefix']="microb"    
     Mdata=Mdata.rename(columns=dict( zip(microbName1, newMicrobNames) ))
@@ -120,20 +121,47 @@ def metaData(
     if Covariates.isna().sum().sum() >0 :
         print("Samples with missing covariate values are removed from the analysis.")
     
- 
+    ## to add non-numeric add
+    
+    xNames=colnames(Covariates)
+    nCov=len(xNames)
+    
+    ## to add binary check
+    
+    results['nBinVars']=0
+    binaryInd=None
+    results['varNamForBin']=None
+    
+    results['binaryInd']=None
+    results['xNames']=colnames(Covariates)
+    xNewNames=np.array(["x" + str(i+1) for i in range(len(xNames))])
+    Covariates = Covariates.rename(columns=dict( zip(colnames(Covariates), xNewNames) ))
+    results['covsPrefix']="x"
+    results['xNewNames']=xNewNames
+    
+    results['testCovInd']=which(r_in(results['xNames'],testCov))
+    
+    results['testCovInOrder']=results['xNames'][results['testCovInd']]
+    results['testCovInNewNam']=results['xNewNames'][results['testCovInd']]
+    del(xNames,xNewNames)
+      
+    CovarWithId_new=cbind([CovarWithId.loc[:,linkIDname], Covariates])
+    data = MdataWithId_new.merge(CovarWithId_new, on = linkIDname)
+    dataOmit = data.dropna()
+    
+    
+    results['covariatesData']=CovarWithId_new
+    results['covariatesData'].rename(columns=dict( zip(results['covariatesData'], np.insert(results['xNames'], 0, linkIDname) ) ))
+    del(MdataWithId_new,CovarWithId_new)
 
+    Mdata_omit=dataOmit.loc[:,np.array(newMicrobNames1)]
     
-    # dictionary
-Data = {'Name': ['GeeksForGeeks','Python'],
-          'Unique ID': ['900','450']}
- 
-# create a dataframe object
-df = pd.DataFrame(Data)
-
-pd.to_numeric()
+    # check taxa with zero or 1 read again after all missing data removed
+    # to add
     
-df.
+    results['data']=dataOmit
     
+    return results
     
     
     
