@@ -4,7 +4,9 @@
 
 The Python version of IFAA, a novel approach to make inference on the association of covariates with the absolute abundance (AA) of microbiome in an ecosystem.
 
-## Installation
+## Installation and Usage
+![Under Construction](https://user-images.githubusercontent.com/2846578/50296603-d76e5780-0448-11e9-8cf9-6152ff06388a.gif)
+
 
 
 ## References 
