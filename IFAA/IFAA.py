@@ -8,14 +8,7 @@ import numpy as np
 import pandas as pd
 import warnings
 
-CovData = load_dataC()
-MicrobData = load_dataM()
-linkIDname = "id"
-testMany=True
-ctrlMany=False
-testCov = ["v1", "v2"]
-ctrlCov = ["v3"]
-taxkeepThresh = 0
+
 
 IFAA(haveDataM(), haveDataC(), linkIDname = "id")
 

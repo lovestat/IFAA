@@ -50,13 +50,32 @@ def Regulariz(
     data.info=dataInfo(data=data,Mprefix=Mprefix,
                      covsPrefix=covsPrefix,
                      binPredInd=binaryInd)
-  nSub=data.info$nSub
-  taxaNames=data.info$taxaNames
-  nPredics=data.info$nPredics
-  nTaxa=data.info$nTaxa
-  rm(data.info)
+    nSub=data.info['nSub']
+    taxaNames=data.info['taxaNames']
+    nPredics=data.info['nPredics']
+    nTaxa=data.info['nTaxa']
+    rm(data.info)
     
+    regul_start_time = timeit.default_timer()
+    print("Start Phase 1 analysis")
     
+    selectRegroup=getScrResu(data=data,testCovInd=testCovInd,
+                           testCovInOrder=testCovInOrder,
+                           testCovInNewNam=testCovInNewNam,nRef=nRef,
+                           paraJobs=paraJobs,
+                           refTaxa=refTaxa,
+                           standardize=standardize,
+                           sequentialRun=sequentialRun,
+                           allFunc=allFunc,
+                           refReadsThresh=refReadsThresh,
+                           SDThresh=SDThresh,
+                           SDquantilThresh=SDquantilThresh,
+                           balanceCut=balanceCut,
+                           Mprefix=Mprefix,
+                           covsPrefix=covsPrefix,
+                           binPredInd=binaryInd,
+                           adjust_method=adjust_method,
+                           seed=seed)
     
     
     
