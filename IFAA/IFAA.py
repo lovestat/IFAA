@@ -1,16 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import loadData
+from loadData import *
 import allUserDefinedFuncs
+from metaData import *
 import timeit
 import numpy as np
 import pandas as pd
 import warnings
 
-CovData = loadData.load_dataC()
-MicrobData = loadData.load_dataM()
+CovData = load_dataC()
+MicrobData = load_dataM()
+linkIDname = "id"
 testMany=True
 ctrlMany=False
+testCov = ["v1", "v2"]
+ctrlCov = ["v3"]
+taxkeepThresh = 0
 
 IFAA(haveDataM(), haveDataC(), linkIDname = "id")
 
@@ -39,6 +44,10 @@ def IFAA(
     balanceCut=0.2,
     seed=1,
     ):
+    
+    testCov = np.array(testCov)
+    ctrlCov = np.array(ctrlCov)
+    linkIDname = np.array(linkIDname)
 
     allFunc = allUserDefinedFuncs.allUserFunc()
     results = {}

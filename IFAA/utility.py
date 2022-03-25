@@ -12,12 +12,17 @@ from itertools import compress
 def colnames(x):
     if not isinstance(x, pd.core.frame.DataFrame): 
         raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return x.columns.to_numpy()
+    return x.columns.to_numpy(dtype = "U")
 
 def ncol(x):
     if not isinstance(x, pd.core.frame.DataFrame): 
         raise Exception("Input is not pandas.core.frame.DataFrame ")
     return len(x.columns)
+
+def nrow(x):
+    if not isinstance(x, pd.core.frame.DataFrame): 
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return len(x.index)
 
 def colSums(x):
     if not isinstance(x, pd.core.frame.DataFrame): 
@@ -30,13 +35,15 @@ def rowSums(x):
     return x.sum(axis = 1)
 
 def r_in(x, y):
-    return pd.Series(x).isin(y).tolist()
+    x, y = np.array(x), np.array(y)
+    return np.array([item in y for item in x])
 
 def r_ni(x, y):
-    return [not item for item in r_in(x, y)]
+    x, y = np.array(x), np.array(y)
+    return np.array([not item in y for item in x])
 
-def rm(x):
-    del x
+def rm(*args):
+    del args
 
 def slice_bool(x, y): 
     """Slicing list by a boolean list"""

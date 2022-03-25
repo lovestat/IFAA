@@ -9,10 +9,7 @@ import numpy as np
 import warnings
 from utility import *
 
-linkIDname = "id"
-testCov = ["v1", "v2"]
-ctrlCov = ["v3"]
-taxkeepThresh = 0
+
 
 def metaData(
         MicrobData,
@@ -31,7 +28,7 @@ def metaData(
         raise Exception("linkIDname is missing.")
         
     if ( len(testCov)>0 and len(ctrlCov)>0 ):
-        if sum(r_in(testCov + ctrlCov, colnames(CovData))) != len(testCov + ctrlCov):
+        if sum(r_in(np.concatenate((testCov, ctrlCov)), colnames(CovData))) != len(np.concatenate((testCov, ctrlCov))):
             raise Exception("Error: some covariates are not available in the data.")
   
     if sum( r_in(testCov, ctrlCov) ) > 0:
@@ -42,18 +39,20 @@ def metaData(
     if( len(colnames(MdataWithId)) != ncol(MdataWithId) ): 
         raise Exception("Microbiome data lack variable names.")
     
-    if (MdataWithId[MdataWithId.columns.drop(linkIDname)].values < 0).any():
+    if (MdataWithId.loc[:, MdataWithId.columns != linkIDname].values < 0).any():
         raise Exception("Microbiome data contains negative values.")
     
     if MdataWithId[linkIDname].isna().mean() > 0.8:
         warnings.warn("There are over 80% missing values for the linkId variable in the Microbiome data file. Double check the data format.")
+    
+    
     
     # read covariate data
     CovarWithId=CovData
     if CovarWithId[linkIDname].isna().mean() > 0.8:
         warnings.warn("There are over 80% missing values for the linkId variable in the covariates data file. Double check the data format.")
     
-    Covariates1 = CovarWithId[CovarWithId.columns.drop(linkIDname)]
+    Covariates1 = CovarWithId.loc[:, CovarWithId.columns != linkIDname]
     
     # determine testCov and ctrlCov
     if len(testCov) == 0:
@@ -69,13 +68,13 @@ def metaData(
     
     if len(ctrlCov) == 0 and ctrlMany:
         print('No control covariates are specified, all variables except testCov are considered as control covariates.')
-        ctrlCov= slice_bool(xNames, r_ni(xNames, testCov))   
-    ctrlCov = slice_bool(ctrlCov, r_ni(ctrlCov, testCov))
+        ctrlCov= xNames[r_ni(xNames, testCov)]  
+    ctrlCov = ctrlCov[r_ni(ctrlCov, testCov)]
     results['ctrlCov'] = ctrlCov
     
     # merge data to remove missing
-    CovarWithId1=CovarWithId[ [linkIDname]+testCov+ctrlCov ]
-    allRawData = CovarWithId1.merge(MdataWithId, on = linkIDname).dropna()
+    CovarWithId1=CovarWithId[ np.hstack([linkIDname, testCov, ctrlCov]) ]
+    allRawData = CovarWithId1.merge(MdataWithId, on = linkIDname.tolist()).dropna()
     CovarWithId = allRawData.loc[:, r_in(colnames(allRawData), colnames(CovarWithId1))]
     Covariates=CovarWithId.loc[:, r_ni(colnames(CovarWithId), [linkIDname])]
     rm(CovarWithId1)
@@ -84,7 +83,7 @@ def metaData(
         raise Exception("There are non-numeric variables in the covariates for association test.")
         
     MdataWithId=allRawData.loc[:, r_in(colnames(allRawData), colnames(MdataWithId)) ]
-    Mdata_raw=MdataWithId.loc[:, r_ni(colnames(MdataWithId), [linkIDname])]
+    Mdata_raw=MdataWithId.loc[:, r_ni(colnames(MdataWithId), linkIDname)]
     rm(allRawData)
     
     # check zero taxa and subjects with zero taxa reads
@@ -146,7 +145,7 @@ def metaData(
     del(xNames,xNewNames)
       
     CovarWithId_new=cbind([CovarWithId.loc[:,linkIDname], Covariates])
-    data = MdataWithId_new.merge(CovarWithId_new, on = linkIDname)
+    data = MdataWithId_new.merge(CovarWithId_new, on = linkIDname.tolist())
     dataOmit = data.dropna()
     
     
