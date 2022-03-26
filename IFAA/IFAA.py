@@ -23,7 +23,7 @@ def IFAA(
     ctrlMany=False,
     nRef=40,
     nRefMaxForEsti=2,
-    refTaxa=[],
+    refTaxa=np.empty(0),
     adjust_method='BY',
     fdrRate=0.15,
     paraJobs=None,
