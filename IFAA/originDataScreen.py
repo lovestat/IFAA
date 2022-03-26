@@ -9,6 +9,10 @@ Created on Fri Mar 25 22:07:38 2022
 
 import numpy as np
 from utility import *
+import timeit
+import multiprocessing as mp
+import math
+import joblib
 
 def originDataScreen(
   data,
@@ -42,18 +46,28 @@ def originDataScreen(
     nAlphaNoInt=nPredics*nNorm
     nAlphaSelec=nPredics*nTaxa
     
-    countOfSelec=rep(0, nAlphaSelec)
+    countOfSelec=np.zeros(nAlphaSelec)
     
     # overwrite nRef if the reference taxon is specified
     nRef=len(refTaxa)
+    
+    startT1=timeit.default_timer()
+    if paraJobs is None:
+        availCores = mp.cpu_count()
+        if isinstance(availCores, int): 
+            paraJobs = max(1, availCores-2)
+    
+    batch=paraJobs
+    forLoopN=math.ceil(nRef/batch)
+    
+    if not sequentialRun:
+        print(paraJobs, " parallel jobs are registered for analyzing ", nRef, " reference taxa in Phase 1")
 
+        
     
     
-    
-    
-    
-    
-    
+    [(i, j) for j in range(10) for i in range(10)]
+
     
     
     
