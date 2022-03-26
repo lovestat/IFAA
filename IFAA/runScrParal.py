@@ -14,7 +14,7 @@ def runScrParal(
   nRef,
   paraJobs,
   refTaxa,
-  maxDimensionScr=0.8*434*10*10^4,
+  maxDimensionScr=0.8*434*10*10**4,
   standardize,
   sequentialRun,
   allFunc=allFunc,
@@ -51,3 +51,23 @@ def runScrParal(
     nNorm=nTaxa-1
     nAlphaNoInt=nPredics*nNorm
     nAlphaSelec=nPredics*nTaxa
+    
+    # make reference taxa list
+    if len(refTaxa)<nRef:
+        if len(seed)>0:
+            ## to add set seed here
+        taxon_to_be_sample = results['goodRefTaxaCandi'][r_ni(results['goodRefTaxaCandi'], refTaxa)]
+        num_to_be_sample = (nRef-len(refTaxa))
+        if num_to_be_sample >= len(taxon_to_be_sample):
+            num_to_be_sample = len(taxon_to_be_sample)
+        print("The number of candidate reference taxon is smaller than the number of taxon required in phase 1. The number of taxon was set to be ",num_to_be_sample)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
