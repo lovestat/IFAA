@@ -7,6 +7,7 @@ Created on Sun Mar 27 00:06:30 2022
 """
 
 import numpy as np
+from utility import *
 
 def AIcalcu(
         data,
