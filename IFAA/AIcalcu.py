@@ -14,6 +14,7 @@ def AIcalcu(
         ref,
         Mprefix,
         covsPrefix):
+    
     results = {}
     
     # get the original sample size
@@ -23,6 +24,7 @@ def AIcalcu(
     # get taxa variable names
     microPositions = data.columns.str.startswith(Mprefix)
     nTaxa = len(which(microPositions))
+    nNorm=nTaxa-1
     taxaNames = data.columns[microPositions]
     rm(microPositions)
     
