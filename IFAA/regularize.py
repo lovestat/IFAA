@@ -56,6 +56,8 @@ def Regulariz(
     regul_start_time = timeit.default_timer()
     print("Start Phase 1 analysis")
     
+    binPredInd=binaryInd
+    
     selectRegroup=getScrResu(data=data,testCovInd=testCovInd,
                            testCovInOrder=testCovInOrder,
                            testCovInNewNam=testCovInNewNam,nRef=nRef,

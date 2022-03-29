@@ -21,6 +21,9 @@ from sklearn.linear_model import LinearRegression
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
 
+import glmnet_python
+from glmnet import glmnet
+
 
 def originDataScreen(
   data,
@@ -72,6 +75,7 @@ def originDataScreen(
         print(paraJobs, " parallel jobs are registered for analyzing ", nRef, " reference taxa in Phase 1")
 
         
+i = 1
 
 def foreachUnitRun(i):
     
@@ -156,18 +160,33 @@ def runGlmnet(
   x,
   y,
   nPredics,
+  standardize=FALSE,
   family="gaussian",
   nfolds=10,
-  lambda.min.ratio=0.05,
+  lambda_min_ratio=0.05,
   nLam=100,
-  standardize=FALSE,
   intercept=TRUE,
   zeroSDCut=10**(-20)
 ):
+    results={}
+    nBeta=x.shape[1]
+    nObsAll=len(y)
     
+    # remove near constant x columns
+    sdX=np.std(x, axis = 0)
+    xWithNearZeroSd=which(sdX<=zeroSDCut)
+    if len(xWithNearZeroSd)>0 :
+        x = np.delete(x, xWithNearZeroSd, axis=1)
+    rm(sdX)
     
-    
-    
+    # calculate lambda max
+    if family=="gaussian" :
+        lamMax = np.max( np.abs( (x*y[:, np.newaxis]).sum(0) ) ) / nObsAll
+        lamVec=seq(lamMax,0,length=(nLam+1))[1:nLam]
+        
+        lamVec = np.linspace(lamMax, 0, nLam+1)[0:nLam]  
+        cvStartTime = timeit.default_timer()
+
     
     
     

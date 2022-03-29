@@ -7,6 +7,7 @@ Created on Thu Mar 24 21:32:12 2022
 """
 import numpy as np
 from allUserDefinedFuncs import allUserFunc
+from dataInfo import dataInfo
 
 def runScrParal(
   data,
