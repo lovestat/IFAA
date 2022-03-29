@@ -6,8 +6,7 @@ Created on Sun Mar 27 00:06:08 2022
 @author: jin
 """
 import numpy as np
-
-ref = "microb1"
+from AIcalcu import *
 
 def dataRecovTrans(
   data,

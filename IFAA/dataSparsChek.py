@@ -6,6 +6,8 @@ Created on Thu Mar 24 18:10:28 2022
 @author: jin
 """
 
+from utility import *
+
 def dataSparsCheck(data, Mprefix):
     results = {}
     

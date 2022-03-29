@@ -13,6 +13,14 @@ import timeit
 import multiprocessing as mp
 import math
 import joblib
+from dataInfo import *
+from dataRecovTrans import *
+from AIcalcu import *
+
+from sklearn.linear_model import LinearRegression
+from statsmodels.api import OLS
+from statsmodels.stats.multitest import multipletests
+
 
 def originDataScreen(
   data,
@@ -28,7 +36,7 @@ def originDataScreen(
   binPredInd,
   adjust_method,
   seed,
-  maxDimensionScr=434*5*10^5):
+  maxDimensionScr=434*5*10**5):
     
     results = {}
     
@@ -64,10 +72,98 @@ def originDataScreen(
         print(paraJobs, " parallel jobs are registered for analyzing ", nRef, " reference taxa in Phase 1")
 
         
-    
-    
-    [(i, j) for j in range(10) for i in range(10)]
 
+def foreachUnitRun(i):
+    
+    ii=which(taxaNames==refTaxa[i])
+    dataForEst=dataRecovTrans(data=data,
+                              ref=refTaxa[i],
+                              Mprefix=Mprefix,
+                              covsPrefix=covsPrefix)
+
+    xTildLongTild_i=dataForEst['xTildalong']
+    yTildLongTild_i=dataForEst['UtildaLong']
+    rm(dataForEst)
+    
+    maxSubSamplSiz=np.min( (50000.0, np.floor(maxDimensionScr / xTildLongTild_i.shape[1]))).astype(int)
+    
+    nToSamplFrom = xTildLongTild_i.shape[0]
+
+    subSamplK=np.ceil(nToSamplFrom/maxSubSamplSiz).astype(int)
+    
+    if subSamplK==1 : maxSubSamplSiz=nToSamplFrom
+
+    nRuns=np.ceil(subSamplK/3).astype(int)
+    
+    for k in range(nRuns):
+        rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace = False)
+        
+        x = xTildLongTild_i[rowToKeep, :]
+        y = yTildLongTild_i[rowToKeep]
+        
+        if x.shape[0] > (3 * x.shape[1]):
+            Penal.i=runlinear(x=x,y=y, nPredics=nPredics)
+            BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
+            EstNoInt.k<-abs(Penal.i$coef_est_noint)
+        else:
+            Penal.i=runGlmnet(x=x,y=y, nPredics=nPredics, standardize=standardize)
+            BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
+            EstNoInt.k<-abs(Penal.i$betaNoInt)
+        
+        
+def runlinear(
+        x,
+        y,
+        nPredics,
+        fwerRate=0.25,
+        adjust_method="fdr"):
+    
+    results={}
+    nBeta=x.shape[1]
+    nObsAll=len(y)
+    print("length of y: ",len(y))
+    
+    #lm_model = LinearRegression(fit_intercept = False)
+    #lm_res = lm_model.fit(x, y)
+    #lm_res.coef_
+    
+    lm_res = OLS(y, x).fit()
+    p_value_est = lm_res.pvalues
+    disc_index = np.arange(0, len(p_value_est), (nPredics+1) )
+    p_value_est_noint = np.delete(p_value_est, disc_index, axis=0)
+    
+    ## this method automatically convert over 1 values to 1
+    p_value_est_noint_adj = multipletests(p_value_est_noint, 
+                                          alpha = 0.05,
+                                          method = adjust_method)[1]
+
+    coef_est = np.abs(lm_res.params)
+    disc_index = np.arange(0, len(p_value_est), (nPredics+1) )
+    ## NA coef is snot considered here
+    coef_est_noint = np.delete(coef_est, disc_index, axis=0)
+    
+    # return
+    results['betaNoInt']=p_value_est_noint_adj<fdrRate
+    results['betaInt']=p_value_est
+    results['coef_est_noint']=coef_est_noint
+
+
+    return results
+    
+
+
+def runGlmnet(
+  x,
+  y,
+  nPredics,
+  family="gaussian",
+  nfolds=10,
+  lambda.min.ratio=0.05,
+  nLam=100,
+  standardize=FALSE,
+  intercept=TRUE,
+  zeroSDCut=10**(-20)
+):
     
     
     

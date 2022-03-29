@@ -6,11 +6,8 @@ Created on Thu Mar 24 14:49:50 2022
 @author: jin
 """
 
-map(eval, """data=data,Mprefix=Mprefix,
-                 covsPrefix=covsPrefix,
-                 binPredInd=binaryInd""".split(","))
-
-
+from dataSparsChek import *
+from utility import *
 
 def Regulariz(
         data,
@@ -29,13 +26,13 @@ def Regulariz(
         bootB,
         standardize,
         sequentialRun,
-        allFunc=allFunc,
         refReadsThresh,
         SDThresh,
         SDquantilThresh,
         balanceCut,
         adjust_method,
-        seed):
+        seed,
+        allFunc=allFunc):
     results = {}
     regul_start_time = timeit.default_timer()
     
@@ -45,7 +42,7 @@ def Regulariz(
     # load abundance data info
     
     binCheck=data.loc[:, testCovInNewNam].nunique()
-    binaryInd<-which(binCheck==2)
+    binaryInd=which(binCheck==2)
     
     data.info=dataInfo(data=data,Mprefix=Mprefix,
                      covsPrefix=covsPrefix,

@@ -6,6 +6,8 @@ Created on Thu Mar 24 19:37:49 2022
 @author: jin
 """
 
+from utility import *
+
 def dataInfo(
     data,
     Mprefix,

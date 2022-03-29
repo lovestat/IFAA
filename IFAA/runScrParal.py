@@ -6,6 +6,7 @@ Created on Thu Mar 24 21:32:12 2022
 @author: jin
 """
 import numpy as np
+from allUserDefinedFuncs import allUserFunc
 
 def runScrParal(
   data,
@@ -15,10 +16,8 @@ def runScrParal(
   nRef,
   paraJobs,
   refTaxa,
-  maxDimensionScr=0.8*434*10*10**4,
   standardize,
   sequentialRun,
-  allFunc=allFunc,
   refReadsThresh,
   SDThresh,
   SDquantilThresh,
@@ -27,7 +26,10 @@ def runScrParal(
   covsPrefix,
   binPredInd,
   adjust_method,
-  seed):
+  seed,
+  maxDimensionScr=0.8*434*10*10**4,
+  allFunc=allFunc,
+):
     
     # load data info
     basicInfo=dataInfo(data=data,
@@ -55,7 +57,7 @@ def runScrParal(
     
     # make reference taxa list
     if len(refTaxa)<nRef:
-        if len(seed)>0:
+        if seed is not None:
             np.random.seed(seed)
             
         taxon_to_be_sample = results['goodRefTaxaCandi'][r_ni(results['goodRefTaxaCandi'], refTaxa)]
@@ -74,7 +76,7 @@ def runScrParal(
             
         
     if len(refTaxa) >= nRef:
-        if len(seed) > 0:
+        if seed is not None :
             np.random.seed(seed)
         refTaxa=np.random.choice(refTaxa, nRef, replace=True)
         results['refTaxa'] = refTaxa

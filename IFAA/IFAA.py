@@ -23,8 +23,8 @@ def IFAA(
     ctrlMany=False,
     nRef=40,
     nRefMaxForEsti=2,
-    refTaxa=np.empty(0),
-    adjust_method='BY',
+    refTaxa=[],
+    adjust_method='fdr_by',
     fdrRate=0.15,
     paraJobs=None,
     bootB=500,
@@ -41,6 +41,7 @@ def IFAA(
     testCov = np.array(testCov)
     ctrlCov = np.array(ctrlCov)
     linkIDname = np.array(linkIDname)
+    refTaxa=np.array(refTaxa)
 
     allFunc = allUserDefinedFuncs.allUserFunc()
     results = {}
@@ -83,5 +84,23 @@ def IFAA(
         
     refTaxa_newNam=newMicrobNames[r_in(microbName, refTaxa)]
 
-    results['analysisResults']
+    results['analysisResults'] = Regulariz(data=data,testCovInd=testCovInd,
+                                    testCovInOrder=testCovInOrder,
+                                    testCovInNewNam=testCovInNewNam,
+                                    microbName=microbName,nRef=nRef,
+                                    nRefMaxForEsti=nRefMaxForEsti,
+                                    binaryInd=binaryInd,
+                                    covsPrefix=covsPrefix,Mprefix=Mprefix,
+                                    refTaxa=refTaxa_newNam,
+                                    paraJobs=paraJobs,
+                                    adjust_method=adjust_method,
+                                    fwerRate=fdrRate,
+                                    bootB=bootB,
+                                    standardize=standardize,
+                                    sequentialRun=sequentialRun,
+                                    refReadsThresh=refReadsThresh,
+                                    SDThresh=SDThresh,
+                                    SDquantilThresh=SDquantilThresh,
+                                    balanceCut=balanceCut,seed=seed,
+                                    allFunc=allFunc)
 

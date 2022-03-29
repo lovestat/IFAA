@@ -20,7 +20,7 @@ def metaData(
         ctrlCov=None,                  
         testMany=True,
         ctrlMany=True,
-        MZILN=True):
+        MZILN=False):
     
     results={}
     
@@ -127,11 +127,26 @@ def metaData(
     
     ## to add binary check
     
+    binCheck = Covariates.nunique()
+
+    if any(binCheck == 2) :
+        binaryInd=which(binCheck==2)
+        results['varNamForBin']=xNames[binCheck==2]
+        results['nBinVars']=len(results['varNamForBin'])
+        
+        for i in range(varNamForBin) :
+            mini=min(Covariates.iloc[:,i])
+            maxi=max(Covariates.iloc[:,i])
+            if any(mini != 0 and maxi != 1) :
+                Covariates.iloc[ Covariates.iloc[:,i]==mini, results['varNamForBin'][i] ]=0
+                Covariates.iloc[ Covariates.iloc[:,i]==maxi, results['varNamForBin'][i] ]=1
+                print("Binary covariate",i,"is not coded as 0/1 which may generate analysis bias. It has been changed to 0/1. The changed covariates data can be extracted from the result file.")
+                
     results['nBinVars']=0
-    binaryInd=None
-    results['varNamForBin']=None
+    binaryInd=[]
+    results['varNamForBin']=[]
     
-    results['binaryInd']=None
+    results['binaryInd']=[]
     results['xNames']=colnames(Covariates)
     xNewNames=np.array(["x" + str(i+1) for i in range(len(xNames))])
     Covariates = Covariates.rename(columns=dict( zip(colnames(Covariates), xNewNames) ))
