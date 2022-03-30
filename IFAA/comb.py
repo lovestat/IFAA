@@ -117,11 +117,11 @@ def cbind(x):
 def which(x):
     return np.array([i for i, j in enumerate(x) if j])
 
+
 def np_assign_but(ar, but_ind, v):
     assign_ind = np.setdiff1d(np.arange(len(ar)), but_ind)
-    ar[assign_ind]=v
-    return 
-
+    ar[assign_ind] = v
+    return
 
 
 def IFAA(
@@ -1020,67 +1020,78 @@ def getScrResu(
     allFunc=allFunc,
 ):
     results = {}
-    
+
     # run permutation
-    scrParal=runScrParal(data=data,testCovInd=testCovInd,
-                         testCovInOrder=testCovInOrder,
-                         testCovInNewNam=testCovInNewNam,nRef=nRef,
-                         paraJobs=paraJobs,
-                         refTaxa=refTaxa,
-                         standardize=standardize,
-                         sequentialRun=sequentialRun,
-                         allFunc=allFunc,
-                         refReadsThresh=refReadsThresh,SDThresh=SDThresh,
-                         SDquantilThresh=SDquantilThresh,balanceCut=balanceCut,
-                         Mprefix=Mprefix,covsPrefix=covsPrefix,
-                         binPredInd=binPredInd,
-                         adjust_method=adjust_method,seed=seed)
-    
-    selecCountOverall=scrParal['countOfSelecForAPred']
-    selecEstOverall=scrParal['estOfSelectForAPred']
+    scrParal = runScrParal(
+        data=data,
+        testCovInd=testCovInd,
+        testCovInOrder=testCovInOrder,
+        testCovInNewNam=testCovInNewNam,
+        nRef=nRef,
+        paraJobs=paraJobs,
+        refTaxa=refTaxa,
+        standardize=standardize,
+        sequentialRun=sequentialRun,
+        allFunc=allFunc,
+        refReadsThresh=refReadsThresh,
+        SDThresh=SDThresh,
+        SDquantilThresh=SDquantilThresh,
+        balanceCut=balanceCut,
+        Mprefix=Mprefix,
+        covsPrefix=covsPrefix,
+        binPredInd=binPredInd,
+        adjust_method=adjust_method,
+        seed=seed,
+    )
 
-    selecCountMatIndv=scrParal['testCovCountMat']
-    selecEstMatIndv=scrParal['testEstMat']
+    selecCountOverall = scrParal["countOfSelecForAPred"]
+    selecEstOverall = scrParal["estOfSelectForAPred"]
 
-    taxaNames=scrParal['taxaNames']
-    goodRefTaxaCandi=scrParal['goodRefTaxaCandi']
+    selecCountMatIndv = scrParal["testCovCountMat"]
+    selecEstMatIndv = scrParal["testEstMat"]
 
-    nTaxa=scrParal['nTaxa']
-    nPredics=scrParal['nPredics']
-    nTestCov=scrParal['nTestCov']
-    results['refTaxa']=scrParal['refTaxa']
+    taxaNames = scrParal["taxaNames"]
+    goodRefTaxaCandi = scrParal["goodRefTaxaCandi"]
+
+    nTaxa = scrParal["nTaxa"]
+    nPredics = scrParal["nPredics"]
+    nTestCov = scrParal["nTestCov"]
+    results["refTaxa"] = scrParal["refTaxa"]
     rm(scrParal)
-    
-    if nTestCov==1:
-        results['selecCountMatIndv']=selecCountOverall
-        results['selecEstMatIndv']=selecEstOverall
-    if nTestCov>1:
-        results['selecCountMatIndv']=selecCountMatIndv
-        results['selecEstMatIndv']=selecEstMatIndv
+
+    if nTestCov == 1:
+        results["selecCountMatIndv"] = selecCountOverall
+        results["selecEstMatIndv"] = selecEstOverall
+    if nTestCov > 1:
+        results["selecCountMatIndv"] = selecCountMatIndv
+        results["selecEstMatIndv"] = selecEstMatIndv
         rm(selecCountMatIndv)
-        
-    goodIndpRefTaxWithCount=selecCountOverall[0,r_in(colnames(selecCountOverall), goodRefTaxaCandi)]
-    goodIndpRefTaxWithEst=selecEstOverall[0,r_in(colnames(selecEstOverall), goodRefTaxaCandi)]
-    
-    if len(goodIndpRefTaxWithCount)==0 :
-        results['goodIndpRefTaxLeastCount']=np.array([])
+
+    goodIndpRefTaxWithCount = selecCountOverall[
+        0, r_in(colnames(selecCountOverall), goodRefTaxaCandi)
+    ]
+    goodIndpRefTaxWithEst = selecEstOverall[
+        0, r_in(colnames(selecEstOverall), goodRefTaxaCandi)
+    ]
+
+    if len(goodIndpRefTaxWithCount) == 0:
+        results["goodIndpRefTaxLeastCount"] = np.array([])
     else:
         pass
-# =============================================================================
-#         results['goodIndpRefTaxLeastCount']=names(goodIndpRefTaxWithCount)[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))][1:2]
-#         goodIndpRefTaxWithEst<-abs(goodIndpRefTaxWithEst[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))])
-#         goodIndpRefTaxWithCount<-goodIndpRefTaxWithCount[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))]
-# =============================================================================
-    results['selecCountOverall']=selecCountOverall
-    results['goodIndpRefTaxWithCount']=goodIndpRefTaxWithCount
-    results['goodIndpRefTaxWithEst']=goodIndpRefTaxWithEst
-    results['goodRefTaxaCandi']=goodRefTaxaCandi
+    # =============================================================================
+    #         results['goodIndpRefTaxLeastCount']=names(goodIndpRefTaxWithCount)[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))][1:2]
+    #         goodIndpRefTaxWithEst<-abs(goodIndpRefTaxWithEst[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))])
+    #         goodIndpRefTaxWithCount<-goodIndpRefTaxWithCount[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))]
+    # =============================================================================
+    results["selecCountOverall"] = selecCountOverall
+    results["goodIndpRefTaxWithCount"] = goodIndpRefTaxWithCount
+    results["goodIndpRefTaxWithEst"] = goodIndpRefTaxWithEst
+    results["goodRefTaxaCandi"] = goodRefTaxaCandi
     rm(goodRefTaxaCandi)
-    results['refTaxonQualified']=2
-    results['finalIndpRefTax']=results['goodIndpRefTaxLeastCount']
+    results["refTaxonQualified"] = 2
+    results["finalIndpRefTax"] = results["goodIndpRefTaxLeastCount"]
 
     return results
-
 
 
 def originDataScreen(
@@ -1137,38 +1148,42 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-    
-    scr1Resu = Parallel(n_jobs=1)(delayed(forEachUnitRun)(i) for i in range(nRef))
-    endT=proc.time()[3]
-    
-    scr1ResuSelec = np.hstack([i['selection'][:, np.newaxis] for i in scr1Resu])
-    scr1ResuEst   = np.hstack([i['coef'][:, np.newaxis] for i in scr1Resu])
-    
-    # create count of selection for individual testCov
-    countOfSelecForAllPred=scr1ResuSelec.sum(axis = 1).reshape( (nPredics, -1) )
-    EstOfAllPred = scr1ResuEst.sum(axis = 1).reshape( (nPredics, -1) )
 
-    testCovCountMat=countOfSelecForAllPred[testCovInd, ]
-    testEstMat = EstOfAllPred[testCovInd, ]
-    rm(scr1ResuSelec,testCovInd,countOfSelecForAllPred,EstOfAllPred)
-    
+    scr1Resu = Parallel(n_jobs=1)(delayed(forEachUnitRun)(i) for i in range(nRef))
+    endT = proc.time()[3]
+
+    scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
+    scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
+
+    # create count of selection for individual testCov
+    countOfSelecForAllPred = scr1ResuSelec.sum(axis=1).reshape((nPredics, -1))
+    EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((nPredics, -1))
+
+    testCovCountMat = countOfSelecForAllPred[
+        testCovInd,
+    ]
+    testEstMat = EstOfAllPred[
+        testCovInd,
+    ]
+    rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
+
     # create overall count of selection for all testCov as a whole
-    countOfSelecForAPred = testCovCountMat.sum(axis = 0).reshape( (1, -1) )
-    estOfSelectForAPred = testEstMat.sum(axis = 0).reshape( (1, -1) )
+    countOfSelecForAPred = testCovCountMat.sum(axis=0).reshape((1, -1))
+    estOfSelectForAPred = testEstMat.sum(axis=0).reshape((1, -1))
 
     countOfSelecForAPred = pd.DataFrame(countOfSelecForAPred)
     estOfSelectForAPred = pd.DataFrame(estOfSelectForAPred)
-    
+
     countOfSelecForAPred.columns = taxaNames
     estOfSelectForAPred.columns = taxaNames
-    
+
     # return results
-    results['testCovCountMat']=testCovCountMat
-    results['testEstMat'] = testEstMat
-    rm(testCovCountMat,testEstMat)
-    results['countOfSelecForAPred']=countOfSelecForAPred
-    results['estOfSelectForAPred'] = estOfSelectForAPred
-    rm(countOfSelecForAPred,estOfSelectForAPred)
+    results["testCovCountMat"] = testCovCountMat
+    results["testEstMat"] = testEstMat
+    rm(testCovCountMat, testEstMat)
+    results["countOfSelecForAPred"] = countOfSelecForAPred
+    results["estOfSelectForAPred"] = estOfSelectForAPred
+    rm(countOfSelecForAPred, estOfSelectForAPred)
     return results
 
 
@@ -1202,46 +1217,63 @@ def forEachUnitRun(i):
         x = xTildLongTild_i[rowToKeep, :]
         y = yTildLongTild_i[rowToKeep]
 
-        if x.shape[0]>(3*x.shape[1]):
-            Penal_i=runlinear(x=x,y=y,nPredics=nPredics)
-            BetaNoInt_k=  (Penal_i['betaNoInt']!=0).astype(int)
-            EstNoInt_k = np.abs(Penal_i['coef_est_noint'])
+        if x.shape[0] > (3 * x.shape[1]):
+            Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
+            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
+            EstNoInt_k = np.abs(Penal_i["coef_est_noint"])
         else:
-            Penal_i=runGlmnet(x=x,y=y,nPredics=nPredics,standardize=standardize)
-            BetaNoInt_k= (Penal_i['betaNoInt']!=0).astype(int)
-            EstNoInt_k=np.abs(Penal_i['betaNoInt'])
-            
+            Penal_i = runGlmnet(x=x, y=y, nPredics=nPredics, standardize=standardize)
+            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
+            EstNoInt_k = np.abs(Penal_i["betaNoInt"])
+
         rm(Penal_i)
-        if k==0 :
-            BetaNoInt_i=BetaNoInt_k
-            EstNoInt_i=EstNoInt_k
-        if k>0 :
-            BetaNoInt_i=BetaNoInt_i+BetaNoInt_k
-            EstNoInt_i=EstNoInt_i+EstNoInt_k
-        rm(BetaNoInt_k,EstNoInt_k)
-        
-    rm(k,x,y,xTildLongTild_i)
-    BetaNoInt_i=BetaNoInt_i/nRuns
-    EstNoInt_i=EstNoInt_i/nRuns
-    selection_i=np.zeros(nAlphaSelec)
+        if k == 0:
+            BetaNoInt_i = BetaNoInt_k
+            EstNoInt_i = EstNoInt_k
+        if k > 0:
+            BetaNoInt_i = BetaNoInt_i + BetaNoInt_k
+            EstNoInt_i = EstNoInt_i + EstNoInt_k
+        rm(BetaNoInt_k, EstNoInt_k)
+
+    rm(k, x, y, xTildLongTild_i)
+    BetaNoInt_i = BetaNoInt_i / nRuns
+    EstNoInt_i = EstNoInt_i / nRuns
+    selection_i = np.zeros(nAlphaSelec)
     coef_i = np.zeros(nAlphaSelec)
-    if ii==1 :
-        np_assign_but(selection_i, np.linspace(0, nPredics-1, nPredics), BetaNoInt_i)
-        np_assign_but(coef_i, np.linspace(0, nPredics-1, nPredics), EstNoInt_i)
-    if ii==nTaxa :
-        np_assign_but(selection_i, np.linspace(nAlphaSelec-nPredics+1, nAlphaSelec, nPredics), BetaNoInt_i)
-        np_assign_but(coef_i, np.linspace(nAlphaSelec-nPredics+1, nAlphaSelec, nPredics), EstNoInt_i)
-    if (ii>1) & (ii<nTaxa) :
-        selection_i[ 0: int((nPredics*(ii-1))) ] = BetaNoInt_i[ 0: int((nPredics*(ii-1))) ]
-        selection_i[ int(nPredics*(ii-1)):nAlphaNoInt  ] = BetaNoInt_i[ int(nPredics*(ii-1)):nAlphaNoInt ]
-        coef_i[ 0: int((nPredics*(ii-1))) ]=EstNoInt_i[ 0: int((nPredics*(ii-1))) ]
-        coef_i[ int(nPredics*(ii-1)):nAlphaNoInt  ] =EstNoInt_i[ int(nPredics*(ii-1)):nAlphaNoInt  ] 
+    if ii == 1:
+        np_assign_but(selection_i, np.linspace(0, nPredics - 1, nPredics), BetaNoInt_i)
+        np_assign_but(coef_i, np.linspace(0, nPredics - 1, nPredics), EstNoInt_i)
+    if ii == nTaxa:
+        np_assign_but(
+            selection_i,
+            np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
+            BetaNoInt_i,
+        )
+        np_assign_but(
+            coef_i,
+            np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
+            EstNoInt_i,
+        )
+    if (ii > 1) & (ii < nTaxa):
+        selection_i[0 : int((nPredics * (ii - 1)))] = BetaNoInt_i[
+            0 : int((nPredics * (ii - 1)))
+        ]
+        selection_i[int(nPredics * (ii - 1)) : nAlphaNoInt] = BetaNoInt_i[
+            int(nPredics * (ii - 1)) : nAlphaNoInt
+        ]
+        coef_i[0 : int((nPredics * (ii - 1)))] = EstNoInt_i[
+            0 : int((nPredics * (ii - 1)))
+        ]
+        coef_i[int(nPredics * (ii - 1)) : nAlphaNoInt] = EstNoInt_i[
+            int(nPredics * (ii - 1)) : nAlphaNoInt
+        ]
     rm(BetaNoInt_i)
     # create return vector
-    recturnlist={}
-    recturnlist['selection']=selection_i
-    recturnlist['coef']=coef_i
+    recturnlist = {}
+    recturnlist["selection"] = selection_i
+    recturnlist["coef"] = coef_i
     return recturnlist
+
 
 def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_by"):
 
