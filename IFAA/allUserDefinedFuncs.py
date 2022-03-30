@@ -5,7 +5,7 @@ Created on Tue Mar 22 12:09:52 2022
 @author: ss
 """
 
-def allUserFunc():
+def allFunc():
     return ["dataRecovTrans", 
             "AIcalcu",
             "metaData",
