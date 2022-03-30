@@ -14,7 +14,7 @@ import pandas as pd
 import warnings
 
 
-IFAA(haveDataM(), haveDataC(), linkIDname="id")
+IFAA(load_dataM(), load_dataC(), linkIDname="id")
 
 
 def IFAA(

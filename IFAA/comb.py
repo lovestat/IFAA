@@ -7,7 +7,6 @@ Created on Tue Mar 29 21:26:38 2022
 """
 
 from loadData import *
-from allUserDefinedFuncs import *
 from metaData import *
 import multiprocessing as mp
 from dataSparsChek import *
@@ -19,6 +18,7 @@ import timeit
 import numpy as np
 import pandas as pd
 import warnings
+from functools import partial
 
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
@@ -28,35 +28,13 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
 
-maxDimensionScr = 434 * 5 * 10**5
-CovData = load_dataC()
-MicrobData = load_dataM()
-linkIDname = "id"
-testCov = ["v1", "v2"]
-ctrlCov = ["v3"]
-testMany = True
-ctrlMany = False
-nRef = 40
-nRefMaxForEsti = 2
-refTaxa = []
-adjust_method = "fdr_by"
-fdrRate = 0.15
-paraJobs = None
-bootB = 500
-standardize = False
-sequentialRun = False
-refReadsThresh = 0.2
-taxkeepThresh = 1
-SDThresh = 0.05
-SDquantilThresh = 0
-balanceCut = 0.2
-seed = 1
 
-i = 1
+
+
+
+
 
 from itertools import compress
-
-
 def colnames(x):
     if not isinstance(x, pd.core.frame.DataFrame):
         raise Exception("Input is not pandas.core.frame.DataFrame ")
@@ -89,12 +67,12 @@ def rowSums(x):
 
 def r_in(x, y):
     x, y = np.array(x), np.array(y)
-    return np.array([item in y for item in x])
+    return np.array([np.isin(item, y) for item in x]).astype(bool)
 
 
 def r_ni(x, y):
     x, y = np.array(x), np.array(y)
-    return np.array([not item in y for item in x])
+    return np.array([not np.isin(item, y) for item in x]).astype(bool)
 
 
 def rm(*args):
@@ -128,16 +106,16 @@ def IFAA(
     MicrobData,
     CovData,
     linkIDname,
-    testCov=None,
-    ctrlCov=None,
+    testCov=np.empty(0),
+    ctrlCov=np.empty(0),
     testMany=True,
     ctrlMany=False,
     nRef=40,
     nRefMaxForEsti=2,
-    refTaxa=[],
+    refTaxa=np.empty(0),
     adjust_method="fdr_by",
     fdrRate=0.15,
-    paraJobs=None,
+    paraJobs=np.empty(0),
     bootB=500,
     standardize=False,
     sequentialRun=False,
@@ -154,7 +132,6 @@ def IFAA(
     linkIDname = np.array(linkIDname)
     refTaxa = np.array(refTaxa)
 
-    allFunc = allFunc
     results = {}
 
     start = timeit.default_timer()
@@ -228,8 +205,7 @@ def IFAA(
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
         balanceCut=balanceCut,
-        seed=seed,
-        allFunc=allFunc,
+        seed=seed
     )
 
 
@@ -238,15 +214,14 @@ def metaData(
     CovData,
     linkIDname,
     taxkeepThresh,
-    testCov=None,
-    ctrlCov=None,
+    testCov=np.empty(0),
+    ctrlCov=np.empty(0),
     testMany=True,
     ctrlMany=True,
     MZILN=False,
 ):
-
     results = {}
-
+    
     if not linkIDname:
         raise Exception("linkIDname is missing.")
 
@@ -805,10 +780,11 @@ def runScrParal(
     binPredInd,
     adjust_method,
     seed,
-    maxDimensionScr=0.8 * 434 * 10 * 10**4,
-    allFunc=allFunc,
+    maxDimensionScr=0.8 * 434 * 10 * 10**4
 ):
-
+    
+    results={}
+    
     # load data info
     basicInfo = dataInfo(
         data=data,
@@ -876,7 +852,6 @@ def runScrParal(
         nRef=nRef,
         refTaxa=refTaxa,
         paraJobs=paraJobs,
-        allFunc=allFunc,
         Mprefix=Mprefix,
         covsPrefix=covsPrefix,
         binPredInd=binPredInd,
@@ -885,6 +860,23 @@ def runScrParal(
         adjust_method=adjust_method,
         seed=seed,
     )
+    
+    results['countOfSelecForAPred']=screen1['countOfSelecForAPred']
+    results['estOfSelectForAPred']=screen1['estOfSelectForAPred']
+    results['testCovCountMat']=screen1['testCovCountMat']
+    results['testEstMat']=screen1['testEstMat']
+
+    rm(screen1)
+
+    nTestCov=len(testCovInd)
+    results['nTestCov']=nTestCov
+    results['nTaxa']=nTaxa
+    results['nPredics']=nPredics
+    
+    results['taxaNames']=taxaNames
+    rm(taxaNames)
+    return results
+
 
 
 def dataSparsCheck(data, Mprefix):
@@ -946,8 +938,7 @@ def Regulariz(
     SDquantilThresh,
     balanceCut,
     adjust_method,
-    seed,
-    allFunc=allFunc,
+    seed
 ):
     results = {}
     regul_start_time = timeit.default_timer()
@@ -972,8 +963,6 @@ def Regulariz(
     regul_start_time = timeit.default_timer()
     print("Start Phase 1 analysis")
 
-    binPredInd = binaryInd
-
     selectRegroup = getScrResu(
         data=data,
         testCovInd=testCovInd,
@@ -984,7 +973,6 @@ def Regulariz(
         refTaxa=refTaxa,
         standardize=standardize,
         sequentialRun=sequentialRun,
-        allFunc=allFunc,
         refReadsThresh=refReadsThresh,
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
@@ -1016,8 +1004,7 @@ def getScrResu(
     binPredInd,
     adjust_method,
     seed,
-    goodIndeCutPerc=0.33,
-    allFunc=allFunc,
+    goodIndeCutPerc=0.33
 ):
     results = {}
 
@@ -1032,7 +1019,6 @@ def getScrResu(
         refTaxa=refTaxa,
         standardize=standardize,
         sequentialRun=sequentialRun,
-        allFunc=allFunc,
         refReadsThresh=refReadsThresh,
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
@@ -1066,23 +1052,27 @@ def getScrResu(
         results["selecCountMatIndv"] = selecCountMatIndv
         results["selecEstMatIndv"] = selecEstMatIndv
         rm(selecCountMatIndv)
+    breakpoint()
 
-    goodIndpRefTaxWithCount = selecCountOverall[
+    goodIndpRefTaxWithCount = selecCountOverall.iloc[
         0, r_in(colnames(selecCountOverall), goodRefTaxaCandi)
     ]
-    goodIndpRefTaxWithEst = selecEstOverall[
+    goodIndpRefTaxWithEst = selecEstOverall.iloc[
         0, r_in(colnames(selecEstOverall), goodRefTaxaCandi)
     ]
 
     if len(goodIndpRefTaxWithCount) == 0:
         results["goodIndpRefTaxLeastCount"] = np.array([])
     else:
-        pass
-    # =============================================================================
-    #         results['goodIndpRefTaxLeastCount']=names(goodIndpRefTaxWithCount)[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))][1:2]
-    #         goodIndpRefTaxWithEst<-abs(goodIndpRefTaxWithEst[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))])
-    #         goodIndpRefTaxWithCount<-goodIndpRefTaxWithCount[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))]
-    # =============================================================================
+        goodIndpRefTaxWithCount.index
+        
+        
+        results['goodIndpRefTaxLeastCount']=names()[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))][1:2]
+        goodIndpRefTaxWithEst<-abs(goodIndpRefTaxWithEst[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))])
+        goodIndpRefTaxWithCount<-goodIndpRefTaxWithCount[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))]
+    
+    
+    
     results["selecCountOverall"] = selecCountOverall
     results["goodIndpRefTaxWithCount"] = goodIndpRefTaxWithCount
     results["goodIndpRefTaxWithEst"] = goodIndpRefTaxWithEst
@@ -1102,7 +1092,6 @@ def originDataScreen(
     refTaxa,
     standardize,
     sequentialRun,
-    allFunc,
     Mprefix,
     covsPrefix,
     binPredInd,
@@ -1131,15 +1120,24 @@ def originDataScreen(
 
     # overwrite nRef if the reference taxon is specified
     nRef = len(refTaxa)
-
+    
+    forEachUnitRun_partial = partial(forEachUnitRun, 
+                                     taxaNames,
+                                     refTaxa,
+                                     Mprefix,
+                                     covsPrefix,
+                                     maxDimensionScr,
+                                     nPredics,
+                                     data,
+                                     nAlphaSelec,
+                                     nAlphaNoInt,
+                                     nTaxa)
+    
     startT1 = timeit.default_timer()
-    if paraJobs is None:
+    if len(paraJobs) == 0:
         availCores = mp.cpu_count()
         if isinstance(availCores, int):
             paraJobs = max(1, availCores - 2)
-
-    batch = paraJobs
-    forLoopN = math.ceil(nRef / batch)
 
     if not sequentialRun:
         print(
@@ -1148,9 +1146,18 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-
-    scr1Resu = Parallel(n_jobs=1)(delayed(forEachUnitRun)(i) for i in range(nRef))
-    endT = proc.time()[3]
+        scr1Resu = Parallel(n_jobs=paraJobs, 
+                            require='sharedmem')(delayed(forEachUnitRun_partial)(i) for i in range(nRef))
+    
+    if sequentialRun:
+        print(
+            " Sequential running analysis for ",
+            nRef,
+            " reference taxa in Phase 1",
+        )
+        scr1Resu = [ forEachUnitRun_partial(i) for i in range(nRef) ]
+    
+    endT = timeit.default_timer()
 
     scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
     scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
@@ -1187,7 +1194,17 @@ def originDataScreen(
     return results
 
 
-def forEachUnitRun(i):
+def forEachUnitRun(taxaNames, 
+                   refTaxa,
+                   Mprefix,
+                   covsPrefix,
+                   maxDimensionScr,
+                   nPredics,
+                   data,
+                   nAlphaSelec,
+                   nAlphaNoInt,
+                   nTaxa,
+                   i):
 
     ii = which(taxaNames == refTaxa[i])
     dataForEst = dataRecovTrans(
