@@ -53,6 +53,8 @@ def inv_bool(x):
     return [not i for i in x]
 
 def cbind(x):
+    if not isinstance(x, pd.core.frame.DataFrame): 
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
     return pd.concat(x, axis=1)
 
 def which(x):

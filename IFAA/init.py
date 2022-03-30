@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import warnings
 
-
+maxDimensionScr=434*5*10**5
 CovData = load_dataC()
 MicrobData = load_dataM()
 linkIDname = "id"
@@ -40,3 +40,5 @@ SDThresh=0.05
 SDquantilThresh=0 
 balanceCut=0.2 
 seed=1 
+
+i = 1

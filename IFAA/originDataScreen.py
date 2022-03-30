@@ -17,12 +17,10 @@ from dataInfo import *
 from dataRecovTrans import *
 from AIcalcu import *
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LassoCV
+
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
-
-import glmnet_python
-from glmnet import glmnet
 
 
 def originDataScreen(
@@ -155,17 +153,26 @@ def runlinear(
     return results
     
 
+  standardize=False
+  family="gaussian"
+  nfolds=10
+  lambda_min_ratio=0.05
+  nLam=100
+  intercept=True
+  zeroSDCut=10**(-20)
+  
+  
 
 def runGlmnet(
   x,
   y,
   nPredics,
-  standardize=FALSE,
+  standardize=False,
   family="gaussian",
   nfolds=10,
   lambda_min_ratio=0.05,
   nLam=100,
-  intercept=TRUE,
+  intercept=True,
   zeroSDCut=10**(-20)
 ):
     results={}
@@ -181,14 +188,28 @@ def runGlmnet(
     
     # calculate lambda max
     if family=="gaussian" :
-        lamMax = np.max( np.abs( (x*y[:, np.newaxis]).sum(0) ) ) / nObsAll
-        lamVec=seq(lamMax,0,length=(nLam+1))[1:nLam]
-        
+        lamMax = np.max( np.abs( (x*y[:, np.newaxis]).sum(0) ) ) / nObsAll        
         lamVec = np.linspace(lamMax, 0, nLam+1)[0:nLam]  
         cvStartTime = timeit.default_timer()
+        
+        cvStartTimei = timeit.default_timer()
+        
+        
+        
+        cvResul=LassoCV(alphas=lamVec, 
+                        fit_intercept=intercept,
+                        normalize = standardize,
+                        cv = nfolds, 
+                        n_jobs = -1).fit(x.copy(), y.copy())
+        cvResul.fit(x, y)
+        
+        cvExeTimei= (timeit.default_timer() - cvStartTimei)/60
 
-    
-    
-    
+        cvResul.alpha
+        lamOpi=as.numeric(cvResul$lambda.min)
+        cvm=as.vector(cvResul$cvm)*nObsAll
+        nLamUsed=length(as.vector(cvResul$lambda))
+
+      rm(cvResul)
     
     
