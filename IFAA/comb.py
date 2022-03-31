@@ -5,113 +5,24 @@ Created on Tue Mar 29 21:26:38 2022
 
 @author: Shangchen
 """
-
-import multiprocessing as mp
-from joblib import Parallel, delayed
 import joblib
 import contextlib
-from tqdm import tqdm
 import math
 import timeit
+import scipy
+import warnings
 import numpy as np
 import pandas as pd
-import warnings
+import multiprocessing as mp
+from joblib import Parallel, delayed
+from tqdm import tqdm
 from functools import partial
-
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
 from sklearn.preprocessing import StandardScaler
-
-
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
-
 from itertools import compress
-
-
-def colnames(x):
-    if not isinstance(x, pd.core.frame.DataFrame):
-        raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return x.columns.to_numpy(dtype="U")
-
-
-def ncol(x):
-    if not isinstance(x, pd.core.frame.DataFrame):
-        raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return len(x.columns)
-
-
-def nrow(x):
-    if not isinstance(x, pd.core.frame.DataFrame):
-        raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return len(x.index)
-
-
-def colSums(x):
-    if not isinstance(x, pd.core.frame.DataFrame):
-        raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return x.sum(axis=0)
-
-
-def rowSums(x):
-    if not isinstance(x, pd.core.frame.DataFrame):
-        raise Exception("Input is not pandas.core.frame.DataFrame ")
-    return x.sum(axis=1)
-
-
-def r_in(x, y):
-    x, y = np.array(x), np.array(y)
-    return np.array([np.isin(item, y) for item in x]).astype(bool)
-
-
-def r_ni(x, y):
-    x, y = np.array(x), np.array(y)
-    return np.array([not np.isin(item, y) for item in x]).astype(bool)
-
-
-def rm(*args):
-    del args
-
-
-def slice_bool(x, y):
-    """Slicing list by a boolean list"""
-    return list(compress(x, y))
-
-
-def inv_bool(x):
-    return [not i for i in x]
-
-
-def cbind(x):
-    return pd.concat(x, axis=1)
-
-
-def which(x):
-    return np.array([i for i, j in enumerate(x) if j])
-
-
-def np_assign_but(ar, but_ind, v):
-    assign_ind = np.setdiff1d(np.arange(len(ar)), but_ind)
-    ar[assign_ind] = v
-    return
-
-
-@contextlib.contextmanager
-def tqdm_joblib(tqdm_object):
-    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
-
-    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
-        def __call__(self, *args, **kwargs):
-            tqdm_object.update(n=self.batch_size)
-            return super().__call__(*args, **kwargs)
-
-    old_batch_callback = joblib.parallel.BatchCompletionCallBack
-    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
-    try:
-        yield tqdm_object
-    finally:
-        joblib.parallel.BatchCompletionCallBack = old_batch_callback
-        tqdm_object.close()
 
 
 def IFAA(
@@ -146,9 +57,8 @@ def IFAA(
 
     results = {}
 
-    start = timeit.default_timer()
-    stop = timeit.default_timer()
-    print("Time: ", stop - start)
+    start_time = timeit.default_timer()
+
     runMeta = metaData(
         MicrobData=MicrobData,
         CovData=CovData,
@@ -219,7 +129,36 @@ def IFAA(
         balanceCut=balanceCut,
         seed=seed,
     )
+    
+    rm(data)
 
+    results['sig_results']=results['analysisResults']['sig_results']
+    results['full_results']=results['analysisResults']['full_results']
+    
+    results['testCov']=testCovInOrder
+    results['ctrlCov']=ctrlCov
+    results['microbName']=microbName
+    results['bootB']=bootB
+    results['refReadsThresh']=refReadsThresh
+    results['balanceCut']=balanceCut
+    results['SDThresh']=SDThresh
+    results['paraJobs']=paraJobs
+    results['SDquantilThresh']=SDquantilThresh
+    results['nRef']=nRef
+    
+    if isinstance(seed, int):
+            results['seed']=seed
+    else:
+        results['seed']="No seed used."
+                
+                
+    totalTimeMins =  (timeit.default_timer() - start_time)/60
+    print("The entire analysis took ", np.round(totalTimeMins,2), " minutes")
+                
+    results['totalTimeMins']=totalTimeMins
+                
+    return results
+            
 
 def metaData(
     MicrobData,
@@ -994,7 +933,6 @@ def Regulariz(
         adjust_method=adjust_method,
         seed=seed,
     )
-
     nRef_smaller = np.max((2, math.ceil(nRef / 2)))
     while_loop_ind = False
     loop_num = 0
@@ -1050,8 +988,6 @@ def Regulariz(
         if while_loop_ind:
             print("100 percent of phase 1 analysis has been done")
 
-        breakpoint()
-
     results["selecCountOverall"] = selectRegroup["selecCountOverall"]
     results["selecCountOverall"].columns = microbName
     results["selecCountMatIndv"] = selectRegroup["selecCountMatIndv"]
@@ -1100,7 +1036,7 @@ def Regulariz(
     unestimableTaxa = np.empty(0)
     qualifyData = data
 
-    binCheck = Covariates.nunique()
+    binCheck = qualifyData.nunique()
     binaryInd = which(binCheck == 2)
 
     # to add
@@ -1128,7 +1064,7 @@ def Regulariz(
         time11 = timeit.default_timer()
         originTaxNam = allRefTaxNam[iii]
         newRefTaxNam = taxaNames[r_in(microbName, originTaxNam)]
-        results["estiList"]["originTaxNam"] = bootResuHDCI(
+        results["estiList"][originTaxNam] = bootResuHDCI(
             data=data,
             refTaxa=newRefTaxNam,
             originRefTaxNam=originTaxNam,
@@ -1153,14 +1089,129 @@ def Regulariz(
             " minutes",
         )
 
-        endT = timeit.default_timer()
+    endT = timeit.default_timer()
 
-        print(
-            "Phase 2 parameter estimation done and took ",
-            round((endT - startT) / 60, 3),
-            " minutes.",
+    print(
+        "Phase 2 parameter estimation done and took ",
+        round((endT - startT) / 60, 3),
+        " minutes.",
+    )
+    ### calculate mean ###
+    fin_ref_taxon_name=np.array(list(results['estiList'].keys()))
+    
+    all_cov_sig_list={}
+    all_cov_list={}
+    
+    for i in range(len(fin_ref_taxon_name)):
+        i_name= fin_ref_taxon_name[i]
+        all_cov_list[i_name]=results['estiList'][i_name]['all_cov_list']
+        all_cov_sig_list[i_name]=results['estiList'][i_name]['sig_list_each']
+    
+    results['all_cov_list']=all_cov_list
+    results['all_cov_sig_list']=all_cov_sig_list
+
+    
+    
+    ref_taxon_name=np.array(list( all_cov_list.keys() ))
+    
+    all_cov_list_0 = all_cov_list[ref_taxon_name[0]]
+    all_cov_list_1 = all_cov_list[ref_taxon_name[1]]
+        
+    exclu_0=r_ni( colnames(all_cov_list_0['est_save_mat']), ref_taxon_name[1] )
+    exclu_1=r_ni( colnames(all_cov_list_1['est_save_mat']), ref_taxon_name[0] )
+    
+    est_save_mat_mean=(all_cov_list_0['est_save_mat'].loc[:,exclu_0]+all_cov_list_1['est_save_mat'].loc[:,exclu_1])/2
+    se_mat_mean=(all_cov_list_0['se_mat'].loc[:,exclu_0]+all_cov_list_1['se_mat'].loc[:,exclu_1])/2
+    CI_low_mat_mean=(all_cov_list_0['CI_low_mat'].loc[:,exclu_0]+all_cov_list_1['CI_low_mat'].loc[:,exclu_1])/2
+    CI_up_mat_mean=(all_cov_list_0['CI_up_mat'].loc[:,exclu_0]+all_cov_list_1['CI_up_mat'].loc[:,exclu_1])/2
+    
+    ## to add
+    if len(binaryInd)>0:
+        est_save_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+        CI_low_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+        CI_up_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+        se_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+    
+    p_value_unadj_mean = (est_save_mat_mean/se_mat_mean).apply(
+        lambda x: (1-scipy.stats.norm.cdf(np.abs(x)))*2, 
         )
+        
+    p_value_adj_mean = p_value_unadj_mean.apply(
+        lambda x: multipletests(x, method=adjust_method)[1],
+        axis = 1,
+        result_type='expand'
+        )
+    
+    p_value_adj_mean.columns = p_value_unadj_mean.columns
+    
+    colname_use=colnames(est_save_mat_mean)
+    
+    
+    sig_ind = np.where((p_value_adj_mean < fwerRate).to_numpy())
+    sig_row = sig_ind[0]
+    sig_col = sig_ind[1]
+    
+    est_sig=[est_save_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    CI_low_sig=[CI_low_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    CI_up_sig=[CI_up_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    p_adj_sig=[p_value_adj_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    se_sig=[se_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    
+    est_sig=np.array(est_sig)
+    CI_low_sig=np.array(CI_low_sig)
+    CI_up_sig=np.array(CI_up_sig)
+    p_adj_sig=np.array(p_adj_sig)
+    se_sig=np.array(se_sig)
+    
+    cov_sig_index=np.sort(np.unique(sig_row))
 
+    sig_list_each_mean={}
+    
+    if len(cov_sig_index)>0:
+        for iii in range(len(cov_sig_index)):
+            sig_loc=which(sig_row==cov_sig_index[iii]).astype(int)
+            est_spe_cov=est_sig[sig_loc]
+            CI_low_spe_cov=CI_low_sig[sig_loc]
+            CI_up_spe_cov=CI_up_sig[sig_loc]
+            p_adj_spe_cov=p_adj_sig[sig_loc]
+            se_spe_cov=se_sig[sig_loc]
+            
+            cov_sig_mat=np.zeros( (len(sig_loc),5) )
+            cov_sig_mat = pd.DataFrame(cov_sig_mat, 
+                                       columns = ["estimate","SE est","CI low","CI up","adj p-value"])
+            cov_sig_mat.iloc[:,0]=est_spe_cov
+            cov_sig_mat.iloc[:,1]=se_spe_cov
+            cov_sig_mat.iloc[:,2]=CI_low_spe_cov
+            cov_sig_mat.iloc[:,3]=CI_up_spe_cov
+            cov_sig_mat.iloc[:,4]=p_adj_spe_cov
+            
+            cov_sig_mat.index=colname_use[sig_col[sig_loc]]
+            sig_list_each_mean[ testCovInOrder[cov_sig_index[iii]] ] = cov_sig_mat
+    
+    results['sig_results']=sig_list_each_mean
+    full_results={}
+    
+    for j in range(len(testCovInOrder)):
+        j_name = testCovInOrder[j]
+        est_res_save_all=pd.concat((est_save_mat_mean.loc[j_name,],
+                               se_mat_mean.loc[j_name,],
+                               CI_low_mat_mean.loc[j_name,],
+                               CI_up_mat_mean.loc[j_name,],
+                               p_value_adj_mean.loc[j_name,]),
+                                   axis = 1)
+        est_res_save_all.columns= ["estimate","SE est","CI low","CI up","adj p-value"]
+        full_results[j_name]=est_res_save_all
+        
+    results['full_results']=full_results
+
+    results['nTaxa']=nTaxa
+    results['nPredics']=nPredics
+    
+    # return results
+
+    results['nRef']=nRef
+    return results
+    
 
 def bootResuHDCI(
     data,
@@ -1177,11 +1228,172 @@ def bootResuHDCI(
     paraJobs,
     standardize,
     seed,
-    maxDimension=434 * 5 * 10 ^ 5,
+    maxDimension=434 * 5 * 10 ** 5,
     bootLassoAlpha=0.05,
 ):
     results = {}
+    
+    # load data info
+    basicInfo = dataInfo(
+        data=data, Mprefix=Mprefix, covsPrefix=covsPrefix, binPredInd=binPredInd
+    )
 
+    taxaNames = basicInfo["taxaNames"]
+    ii=which( r_in(basicInfo['taxaNames'], refTaxa))
+    nTaxa = basicInfo["nTaxa"]
+    nPredics = basicInfo["nPredics"]
+    rm(basicInfo)
+
+    nNorm = nTaxa - 1
+    nAlphaNoInt = nPredics * nNorm
+    nAlphaSelec = nPredics * nTaxa
+
+    countOfSelec = np.zeros(nAlphaSelec)
+    
+    resultsByRefTaxon={}
+    
+    # inital Lasso OLS estimate
+    dataForEst=dataRecovTrans(data=data,ref=refTaxa,
+                            Mprefix=Mprefix,covsPrefix=covsPrefix)
+
+    x=dataForEst['xTildalong']
+    y=dataForEst['UtildaLong']
+    rm(dataForEst)
+
+    xCol=x.shape[1]
+    
+    maxSubSamplSiz=np.min( (50000,math.floor(maxDimension/xCol))  )
+    nToSamplFrom=len(y)
+    subSamplK=math.ceil(nToSamplFrom/maxSubSamplSiz)
+    if subSamplK==1:
+        maxSubSamplSiz=nToSamplFrom
+    
+    nRuns=(math.ceil(subSamplK/3))
+    
+    if x.shape[0] > x.shape[1] :
+        for k in range(nRuns):
+            rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
+            xSub = x[rowToKeep, :]
+            ySub = y[rowToKeep]
+            
+            lm_res = OLS(ySub, xSub).fit()
+            
+            lm_res.summary()
+            lm_res.params
+            lm_res.bse
+            lm_res.tvalues
+            lm_res.pvalues
+            
+            bootResu = np.transpose(
+                np.vstack( (lm_res.params,
+                lm_res.bse,
+                lm_res.tvalues,
+                lm_res.pvalues) ))
+
+            if k==0 :
+                bootResu_k =  bootResu
+            else:
+                bootResu_k=bootResu_k+bootResu
+                
+        fin_ref_taxon_name=originRefTaxNam
+        all_cov_list={}
+        nTestcov=len(testCovInOrder)
+        
+        boot_est=bootResu_k[:,0]/nRuns
+        se_est_all=bootResu_k[:,2]/nRuns
+        boot_CI=lm_res.conf_int()
+        
+        ref_taxon_name=originRefTaxNam
+        
+        p_value_save_mat=np.zeros( (nTestcov, nTaxa-1) )
+        est_save_mat=np.zeros( (nTestcov, nTaxa-1) )
+        CI_up_mat=np.zeros( (nTestcov, nTaxa-1) )
+        CI_low_mat=np.zeros( (nTestcov, nTaxa-1) )
+        se_mat=np.zeros( (nTestcov, nTaxa-1) )
+        
+        for ii in range(nTestcov):
+            se_est=se_est_all[ii:len(lm_res.params):(nPredics+1)]
+            boot_est_par=boot_est[ii:len(lm_res.params):(nPredics+1)]
+            
+            p_value_unadj=(1-scipy.stats.norm.cdf(np.abs(boot_est_par/se_est)))*2
+            boot_est_CI_low=boot_est_par-1.96*se_est
+            boot_est_CI_up=boot_est_par+1.96*se_est
+            
+            p_value_adj=multipletests(
+                p_value_unadj, method=adjust_method
+            )[1]
+            
+            p_value_save_mat[ii,:]=p_value_adj
+            est_save_mat[ii,]=boot_est_par
+            CI_low_mat[ii,]=boot_est_CI_low
+            CI_up_mat[ii,]=boot_est_CI_up
+            se_mat[ii,]=se_est
+            
+    else:
+        for k in range(nRuns):
+            pass
+            ## to add HDCI
+    
+    colname_use=microbName[microbName!=ref_taxon_name]
+    
+    p_value_save_mat=pd.DataFrame(p_value_save_mat, index = testCovInOrder, columns = colname_use)
+    est_save_mat=pd.DataFrame(est_save_mat, index = testCovInOrder, columns = colname_use)
+    CI_low_mat=pd.DataFrame(CI_low_mat, index = testCovInOrder, columns = colname_use)
+    CI_up_mat=pd.DataFrame(CI_up_mat, index = testCovInOrder, columns = colname_use)
+    se_mat=pd.DataFrame(se_mat, index = testCovInOrder, columns = colname_use)
+    
+    sig_ind = np.where((p_value_save_mat < fwerRate).to_numpy())
+    sig_row = sig_ind[0]
+    sig_col = sig_ind[1]
+    
+    est_sig=[est_save_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    CI_low_sig=[CI_low_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    CI_up_sig=[CI_up_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    p_adj_sig=[p_value_save_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    se_sig=[se_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+    
+    est_sig=np.array(est_sig)
+    CI_low_sig=np.array(CI_low_sig)
+    CI_up_sig=np.array(CI_up_sig)
+    p_adj_sig=np.array(p_adj_sig)
+    se_sig=np.array(se_sig)
+    
+    cov_sig_index=np.sort(np.unique(sig_row))
+
+    sig_list_each={}
+    
+    if len(cov_sig_index)>0:
+        for iii in range(len(cov_sig_index)):
+            sig_loc=which(sig_row==cov_sig_index[iii]).astype(int)
+            est_spe_cov=est_sig[sig_loc]
+            CI_low_spe_cov=CI_low_sig[sig_loc]
+            CI_up_spe_cov=CI_up_sig[sig_loc]
+            p_adj_spe_cov=p_adj_sig[sig_loc]
+            se_spe_cov=se_sig[sig_loc]
+            
+            cov_sig_mat=np.zeros( (len(sig_loc),5) )
+            cov_sig_mat = pd.DataFrame(cov_sig_mat, 
+                                       columns = ["estimate","SE est","CI low","CI up","adj p-value"])
+            cov_sig_mat.iloc[:,0]=est_spe_cov
+            cov_sig_mat.iloc[:,1]=se_spe_cov
+            cov_sig_mat.iloc[:,2]=CI_low_spe_cov
+            cov_sig_mat.iloc[:,3]=CI_up_spe_cov
+            cov_sig_mat.iloc[:,4]=p_adj_spe_cov
+            
+            cov_sig_mat.index=colname_use[sig_col[sig_loc]]
+            sig_list_each[ testCovInOrder[cov_sig_index[iii]] ] = cov_sig_mat
+            
+            
+    all_cov_list['est_save_mat']=est_save_mat
+    all_cov_list['p_value_save_mat']=p_value_save_mat
+    all_cov_list['CI_low_mat']=CI_low_mat
+    all_cov_list['CI_up_mat']=CI_up_mat
+    all_cov_list['se_mat']=se_mat
+    
+    results['sig_list_each']=sig_list_each
+    results['all_cov_list']=all_cov_list
+    
+    return results
 
 def getScrResu(
     data,
@@ -1362,7 +1574,8 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-        scr1Resu = [forEachUnitRun_partial(i) for i in range(nRef)]
+        
+        scr1Resu = [forEachUnitRun_partial(i) for i in tqdm(range(nRef))]
 
     endT = timeit.default_timer()
 
@@ -1502,7 +1715,6 @@ def forEachUnitRun(
 
 
 def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_by"):
-
     x, y = np.array(x), np.array(y)
 
     results = {}
@@ -1551,7 +1763,6 @@ def runGlmnet(
     intercept=True,
     zeroSDCut=10 ** (-20),
 ):
-
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
@@ -1599,3 +1810,92 @@ def runGlmnet(
     results["betaNoInt"] = np.delete(beta, disc_index, axis=0)
 
     return results
+
+
+# =============================================================================
+# Help Functions
+# =============================================================================
+
+def colnames(x):
+    if not isinstance(x, pd.core.frame.DataFrame):
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return x.columns.to_numpy(dtype="U")
+
+
+def ncol(x):
+    if not isinstance(x, pd.core.frame.DataFrame):
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return len(x.columns)
+
+
+def nrow(x):
+    if not isinstance(x, pd.core.frame.DataFrame):
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return len(x.index)
+
+
+def colSums(x):
+    if not isinstance(x, pd.core.frame.DataFrame):
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return x.sum(axis=0)
+
+
+def rowSums(x):
+    if not isinstance(x, pd.core.frame.DataFrame):
+        raise Exception("Input is not pandas.core.frame.DataFrame ")
+    return x.sum(axis=1)
+
+
+def r_in(x, y):
+    x, y = np.array(x), np.array(y)
+    return np.array([np.isin(item, y) for item in x]).astype(bool)
+
+
+def r_ni(x, y):
+    x, y = np.array(x), np.array(y)
+    return np.array([not np.isin(item, y) for item in x]).astype(bool)
+
+
+def rm(*args):
+    del args
+
+
+def slice_bool(x, y):
+    """Slicing list by a boolean list"""
+    return list(compress(x, y))
+
+
+def inv_bool(x):
+    return [not i for i in x]
+
+
+def cbind(x):
+    return pd.concat(x, axis=1)
+
+
+def which(x):
+    return np.array([i for i, j in enumerate(x) if j])
+
+
+def np_assign_but(ar, but_ind, v):
+    assign_ind = np.setdiff1d(np.arange(len(ar)), but_ind)
+    ar[assign_ind] = v
+    return
+
+
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
+
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
