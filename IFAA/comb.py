@@ -6,13 +6,11 @@ Created on Tue Mar 29 21:26:38 2022
 @author: Shangchen
 """
 
-from loadData import *
-from metaData import *
-import multiprocessing as mp
-from dataSparsChek import *
-from utility import *
 import multiprocessing as mp
 from joblib import Parallel, delayed
+import joblib
+import contextlib
+from tqdm import tqdm
 import math
 import timeit
 import numpy as np
@@ -28,13 +26,9 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
 
-
-
-
-
-
-
 from itertools import compress
+
+
 def colnames(x):
     if not isinstance(x, pd.core.frame.DataFrame):
         raise Exception("Input is not pandas.core.frame.DataFrame ")
@@ -100,6 +94,24 @@ def np_assign_but(ar, but_ind, v):
     assign_ind = np.setdiff1d(np.arange(len(ar)), but_ind)
     ar[assign_ind] = v
     return
+
+
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
+
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
 
 
 def IFAA(
@@ -205,7 +217,7 @@ def IFAA(
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
         balanceCut=balanceCut,
-        seed=seed
+        seed=seed,
     )
 
 
@@ -221,7 +233,7 @@ def metaData(
     MZILN=False,
 ):
     results = {}
-    
+
     if not linkIDname:
         raise Exception("linkIDname is missing.")
 
@@ -780,11 +792,11 @@ def runScrParal(
     binPredInd,
     adjust_method,
     seed,
-    maxDimensionScr=0.8 * 434 * 10 * 10**4
+    maxDimensionScr=0.8 * 434 * 10 * 10**4,
 ):
-    
-    results={}
-    
+
+    results = {}
+
     # load data info
     basicInfo = dataInfo(
         data=data,
@@ -832,7 +844,7 @@ def runScrParal(
             taxon_to_be_sample, num_to_be_sample, replace=False
         )
         refTaxa = np.hstack((refTaxa, refTaxa_extra))
-        results["refTaxa"] = refTaxa
+        results["refTaxa"] = np.array(refTaxa)
 
         if len(refTaxa) == 0:
             raise Exception(
@@ -843,7 +855,7 @@ def runScrParal(
         if seed is not None:
             np.random.seed(seed)
         refTaxa = np.random.choice(refTaxa, nRef, replace=True)
-        results["refTaxa"] = refTaxa
+        results["refTaxa"] = np.array(refTaxa)
 
     ## run original data screen
     screen1 = originDataScreen(
@@ -860,23 +872,22 @@ def runScrParal(
         adjust_method=adjust_method,
         seed=seed,
     )
-    
-    results['countOfSelecForAPred']=screen1['countOfSelecForAPred']
-    results['estOfSelectForAPred']=screen1['estOfSelectForAPred']
-    results['testCovCountMat']=screen1['testCovCountMat']
-    results['testEstMat']=screen1['testEstMat']
+
+    results["countOfSelecForAPred"] = screen1["countOfSelecForAPred"]
+    results["estOfSelectForAPred"] = screen1["estOfSelectForAPred"]
+    results["testCovCountMat"] = screen1["testCovCountMat"]
+    results["testEstMat"] = screen1["testEstMat"]
 
     rm(screen1)
 
-    nTestCov=len(testCovInd)
-    results['nTestCov']=nTestCov
-    results['nTaxa']=nTaxa
-    results['nPredics']=nPredics
-    
-    results['taxaNames']=taxaNames
+    nTestCov = len(testCovInd)
+    results["nTestCov"] = nTestCov
+    results["nTaxa"] = nTaxa
+    results["nPredics"] = nPredics
+
+    results["taxaNames"] = taxaNames
     rm(taxaNames)
     return results
-
 
 
 def dataSparsCheck(data, Mprefix):
@@ -938,7 +949,7 @@ def Regulariz(
     SDquantilThresh,
     balanceCut,
     adjust_method,
-    seed
+    seed,
 ):
     results = {}
     regul_start_time = timeit.default_timer()
@@ -984,6 +995,193 @@ def Regulariz(
         seed=seed,
     )
 
+    nRef_smaller = np.max((2, math.ceil(nRef / 2)))
+    while_loop_ind = False
+    loop_num = 0
+    print("33 percent of phase 1 analysis has been done")
+    while while_loop_ind is False:
+        loop_num = loop_num + 1
+        if loop_num >= 2:
+            break
+        if len(refTaxa) < nRef_smaller:
+            refTaxa_smaller = np.hstack(
+                (
+                    refTaxa,
+                    (selectRegroup["goodIndpRefTaxWithCount"].index)[
+                        : nRef_smaller - len(refTaxa)
+                    ],
+                )
+            )
+        else:
+            refTaxa_smaller = refTaxa
+        fin_ref_1 = selectRegroup["finalIndpRefTax"]
+        ref_taxa_1 = selectRegroup["refTaxa"]
+        selectRegroup = getScrResu(
+            data=data,
+            testCovInd=testCovInd,
+            testCovInOrder=testCovInOrder,
+            testCovInNewNam=testCovInNewNam,
+            nRef=nRef_smaller,
+            paraJobs=paraJobs,
+            refTaxa=refTaxa_smaller,
+            standardize=standardize,
+            sequentialRun=sequentialRun,
+            refReadsThresh=refReadsThresh,
+            SDThresh=SDThresh,
+            SDquantilThresh=SDquantilThresh,
+            balanceCut=balanceCut,
+            Mprefix=Mprefix,
+            covsPrefix=covsPrefix,
+            binPredInd=binaryInd,
+            adjust_method=adjust_method,
+            seed=seed,
+        )
+        fin_ref_2 = selectRegroup["finalIndpRefTax"]
+        ref_taxa_2 = selectRegroup["refTaxa"]
+        while_loop_ind = np.array_equal(fin_ref_1, fin_ref_2) | np.array_equal(
+            ref_taxa_1, ref_taxa_2
+        )
+
+        if not while_loop_ind:
+            print(
+                np.round(100 * (loop_num + 1) / 3, 0),
+                " percent of phase 1 analysis has been done",
+            )
+        if while_loop_ind:
+            print("100 percent of phase 1 analysis has been done")
+
+        breakpoint()
+
+    results["selecCountOverall"] = selectRegroup["selecCountOverall"]
+    results["selecCountOverall"].columns = microbName
+    results["selecCountMatIndv"] = selectRegroup["selecCountMatIndv"]
+    finalIndpRefTax = microbName[r_in(taxaNames, selectRegroup["finalIndpRefTax"])]
+    results["finalRefTaxonQualified"] = selectRegroup["refTaxonQualified"]
+    results["goodIndpRefTaxLeastCount"] = microbName[
+        r_in(taxaNames, selectRegroup["goodIndpRefTaxLeastCount"])
+    ]
+    results["goodIndpRefTaxWithCount"] = selectRegroup["goodIndpRefTaxWithCount"]
+    results["goodIndpRefTaxWithCount"].index = microbName[
+        np.hstack(
+            [
+                which(r_in(taxaNames, i))
+                for i in selectRegroup["goodIndpRefTaxWithCount"].index
+            ]
+        )
+    ]
+
+    results["goodIndpRefTaxWithEst"] = selectRegroup["goodIndpRefTaxWithEst"]
+    results["goodIndpRefTaxWithEst"].index = microbName[
+        np.hstack(
+            [
+                which(r_in(taxaNames, i))
+                for i in selectRegroup["goodIndpRefTaxWithEst"].index
+            ]
+        )
+    ]
+
+    results["goodRefTaxaCandi"] = microbName[
+        r_in(taxaNames, selectRegroup["goodRefTaxaCandi"])
+    ]
+    results["randomRefTaxa"] = microbName[r_in(taxaNames, selectRegroup["refTaxa"])]
+    goodIndpRefTax_ascend = results["goodIndpRefTaxWithCount"].sort_values()
+    goodIndpRefTaxNam = goodIndpRefTax_ascend.index
+    rm(selectRegroup)
+
+    MCPExecuTime = (timeit.default_timer() - regul_start_time) / 60
+    results["MCPExecuTime"] = MCPExecuTime
+    print("Phase 1 analysis used ", np.round(MCPExecuTime, 2), " minutes")
+
+    results["finalizedBootRefTaxon"] = finalIndpRefTax
+
+    startT = timeit.default_timer()
+    print("Start Phase 2 parameter estimation")
+
+    unestimableTaxa = np.empty(0)
+    qualifyData = data
+
+    binCheck = Covariates.nunique()
+    binaryInd = which(binCheck == 2)
+
+    # to add
+    if len(binaryInd) > 0:
+        pass
+
+    # check zero taxa and subjects with zero taxa reads
+    TaxaNoReads = which(colSums(qualifyData.loc[:, taxaNames]) == 0).astype(int)
+    rm(qualifyData)
+    unestimableTaxa = np.unique(np.hstack((unestimableTaxa, taxaNames[TaxaNoReads])))
+    results["unEstTaxa"] = microbName[r_in(taxaNames, unestimableTaxa)]
+
+    allRefTaxNam = np.unique(
+        np.hstack((results["finalizedBootRefTaxon"], goodIndpRefTaxNam))
+    )
+    nGoodIndpRef = len(allRefTaxNam)
+    results["allRefTaxNam"] = allRefTaxNam
+
+    results["nRefUsedForEsti"] = np.min((nGoodIndpRef, nRefMaxForEsti))
+
+    results["estiList"] = {}
+
+    for iii in range(results["nRefUsedForEsti"]):
+        print("Start estimation for the ", iii, "th final reference taxon")
+        time11 = timeit.default_timer()
+        originTaxNam = allRefTaxNam[iii]
+        newRefTaxNam = taxaNames[r_in(microbName, originTaxNam)]
+        results["estiList"]["originTaxNam"] = bootResuHDCI(
+            data=data,
+            refTaxa=newRefTaxNam,
+            originRefTaxNam=originTaxNam,
+            bootB=bootB,
+            binPredInd=binaryInd,
+            covsPrefix=covsPrefix,
+            Mprefix=Mprefix,
+            testCovInOrder=testCovInOrder,
+            adjust_method=adjust_method,
+            microbName=microbName,
+            fwerRate=fwerRate,
+            paraJobs=paraJobs,
+            standardize=standardize,
+            seed=seed,
+        )
+        time12 = timeit.default_timer()
+        print(
+            "Estimation done for the ",
+            iii,
+            "th final reference taxon and it took ",
+            round((time12 - time11) / 60, 3),
+            " minutes",
+        )
+
+        endT = timeit.default_timer()
+
+        print(
+            "Phase 2 parameter estimation done and took ",
+            round((endT - startT) / 60, 3),
+            " minutes.",
+        )
+
+
+def bootResuHDCI(
+    data,
+    refTaxa,
+    originRefTaxNam,
+    bootB,
+    binPredInd,
+    covsPrefix,
+    Mprefix,
+    testCovInOrder,
+    adjust_method,
+    microbName,
+    fwerRate,
+    paraJobs,
+    standardize,
+    seed,
+    maxDimension=434 * 5 * 10 ^ 5,
+    bootLassoAlpha=0.05,
+):
+    results = {}
+
 
 def getScrResu(
     data,
@@ -1004,10 +1202,9 @@ def getScrResu(
     binPredInd,
     adjust_method,
     seed,
-    goodIndeCutPerc=0.33
+    goodIndeCutPerc=0.33,
 ):
     results = {}
-
     # run permutation
     scrParal = runScrParal(
         data=data,
@@ -1052,7 +1249,6 @@ def getScrResu(
         results["selecCountMatIndv"] = selecCountMatIndv
         results["selecEstMatIndv"] = selecEstMatIndv
         rm(selecCountMatIndv)
-    breakpoint()
 
     goodIndpRefTaxWithCount = selecCountOverall.iloc[
         0, r_in(colnames(selecCountOverall), goodRefTaxaCandi)
@@ -1064,15 +1260,18 @@ def getScrResu(
     if len(goodIndpRefTaxWithCount) == 0:
         results["goodIndpRefTaxLeastCount"] = np.array([])
     else:
-        goodIndpRefTaxWithCount.index
-        
-        
-        results['goodIndpRefTaxLeastCount']=names()[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))][1:2]
-        goodIndpRefTaxWithEst<-abs(goodIndpRefTaxWithEst[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))])
-        goodIndpRefTaxWithCount<-goodIndpRefTaxWithCount[order(goodIndpRefTaxWithCount,abs(goodIndpRefTaxWithEst))]
-    
-    
-    
+        results["goodIndpRefTaxLeastCount"] = goodIndpRefTaxWithCount.index[
+            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+        ][0:2]
+        goodIndpRefTaxWithEst = np.abs(
+            goodIndpRefTaxWithEst[
+                np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+            ]
+        )
+        goodIndpRefTaxWithCount = goodIndpRefTaxWithCount[
+            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+        ]
+
     results["selecCountOverall"] = selecCountOverall
     results["goodIndpRefTaxWithCount"] = goodIndpRefTaxWithCount
     results["goodIndpRefTaxWithEst"] = goodIndpRefTaxWithEst
@@ -1120,19 +1319,21 @@ def originDataScreen(
 
     # overwrite nRef if the reference taxon is specified
     nRef = len(refTaxa)
-    
-    forEachUnitRun_partial = partial(forEachUnitRun, 
-                                     taxaNames,
-                                     refTaxa,
-                                     Mprefix,
-                                     covsPrefix,
-                                     maxDimensionScr,
-                                     nPredics,
-                                     data,
-                                     nAlphaSelec,
-                                     nAlphaNoInt,
-                                     nTaxa)
-    
+
+    forEachUnitRun_partial = partial(
+        forEachUnitRun,
+        taxaNames,
+        refTaxa,
+        Mprefix,
+        covsPrefix,
+        maxDimensionScr,
+        nPredics,
+        data,
+        nAlphaSelec,
+        nAlphaNoInt,
+        nTaxa,
+    )
+
     startT1 = timeit.default_timer()
     if len(paraJobs) == 0:
         availCores = mp.cpu_count()
@@ -1146,17 +1347,23 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-        scr1Resu = Parallel(n_jobs=paraJobs, 
-                            require='sharedmem')(delayed(forEachUnitRun_partial)(i) for i in range(nRef))
-    
+        # =============================================================================
+        #         scr1Resu = Parallel(n_jobs=paraJobs,
+        #                             require='sharedmem')(delayed(forEachUnitRun_partial)(i) for i in range(nRef))
+        # =============================================================================
+        with tqdm_joblib(tqdm(desc="Progress", total=nRef)) as progress_bar:
+            scr1Resu = Parallel(n_jobs=paraJobs, require="sharedmem")(
+                delayed(forEachUnitRun_partial)(i) for i in range(nRef)
+            )
+
     if sequentialRun:
         print(
             " Sequential running analysis for ",
             nRef,
             " reference taxa in Phase 1",
         )
-        scr1Resu = [ forEachUnitRun_partial(i) for i in range(nRef) ]
-    
+        scr1Resu = [forEachUnitRun_partial(i) for i in range(nRef)]
+
     endT = timeit.default_timer()
 
     scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
@@ -1194,17 +1401,19 @@ def originDataScreen(
     return results
 
 
-def forEachUnitRun(taxaNames, 
-                   refTaxa,
-                   Mprefix,
-                   covsPrefix,
-                   maxDimensionScr,
-                   nPredics,
-                   data,
-                   nAlphaSelec,
-                   nAlphaNoInt,
-                   nTaxa,
-                   i):
+def forEachUnitRun(
+    taxaNames,
+    refTaxa,
+    Mprefix,
+    covsPrefix,
+    maxDimensionScr,
+    nPredics,
+    data,
+    nAlphaSelec,
+    nAlphaNoInt,
+    nTaxa,
+    i,
+):
 
     ii = which(taxaNames == refTaxa[i])
     dataForEst = dataRecovTrans(
@@ -1299,7 +1508,9 @@ def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_by"):
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
-    print("length of y: ", len(y))
+    # =============================================================================
+    #     print("length of y: ", len(y))
+    # =============================================================================
 
     # lm_model = LinearRegression(fit_intercept = False)
     # lm_res = lm_model.fit(x, y)
