@@ -21,8 +21,11 @@ from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
 from sklearn.preprocessing import StandardScaler
 from statsmodels.api import OLS
+import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 from itertools import compress
+# import rpy2.robjects as robjects
+
 
 
 def IFAA(
@@ -48,13 +51,15 @@ def IFAA(
     SDquantilThresh=0,
     balanceCut=0.2,
     seed=1,
-):
-
+):  
+    # Make arguments as numpy arries
     testCov = np.array(testCov)
     ctrlCov = np.array(ctrlCov)
     linkIDname = np.array(linkIDname)
     refTaxa = np.array(refTaxa)
-
+    paraJobs = np.array([paraJobs])
+    
+    # results container, a dictionary
     results = {}
 
     start_time = timeit.default_timer()
@@ -305,7 +310,7 @@ def metaData(
         results["varNamForBin"] = xNames[binCheck == 2]
         results["nBinVars"] = len(results["varNamForBin"])
 
-        for i in range(varNamForBin):
+        for i in range(results["varNamForBin"]):
             mini = min(Covariates.iloc[:, i])
             maxi = max(Covariates.iloc[:, i])
             if any(mini != 0 and maxi != 1):
@@ -450,7 +455,7 @@ def dataInfo(
             allBinPred = predNames[binPredInd]
             nBinPred = len(allBinPred)
 
-            taxaBalanceBin = c()
+            taxaBalanceBin = np.array([])
             bin_nonz_sum = colSums(qualifyData.loc[:, allBinPred])
 
             if min(bin_nonz_sum, nSubQualif - bin_nonz_sum) <= np.floor(
@@ -503,7 +508,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
     omegaRoot = {}
     for j in range(lengthTwoList):
         i = twoList[j]
-        if lLast[i] == nTaxa:
+        if lLast[i] == nTaxa-1:
             omegaRoot[i] = np.eye(int(L[i] - 1))
         else:
             if L[i] == 2:
@@ -525,6 +530,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
 
                 if cSquare < 0:
                     raise Exception("no solution for square root of omega")
+                    
                 d = np.sqrt((0.5 * a - cSquare) / (dim - 1))
 
                 if d is None:
@@ -537,6 +543,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
                 )
 
         rm(L, lLast)
+        
 
     if xOnly:
         # create X_i in the regression equation using Kronecker product
@@ -571,11 +578,13 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
             else:
                 UtildaLong = np.hstack((UtildaLong, Utilda_i))
 
-        rm(omegaRoot, logRatiow, Utilda.i)
+        rm(omegaRoot, logRatiow, Utilda_i)
         results["UtildaLong"] = UtildaLong
         rm(UtildaLong)
         return results
 
+
+    # if not xOnly and yOnly
     # create X_i in the regression equation using Kronecker product
     xDataWithInter = xData.copy()
     rm(xData)
@@ -616,9 +625,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
 
 
 def AIcalcu(data, ref, Mprefix, covsPrefix):
-
     results = {}
-
     # get the original sample size
     nSub = nrow(data)
     MVarNamLength = len(Mprefix)
@@ -652,7 +659,9 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
     taxa_0 = {}
     logRatiow = {}
     A = {}
+    
 
+    
     for i in range(nSub):
         taxa_nonzero = which(w.iloc[i, :] != 0)
         lLast[i] = np.max(taxa_nonzero)
@@ -666,7 +675,7 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
             if l[i] > 1:
                 logRatiow[i] = logwi[:-1:] - logwi[-1]
                 zero_m = np.zeros((int(l[i]) - 1, nNorm))
-                if last_nonzero == nTaxa:
+                if last_nonzero == nTaxa-1:
                     aRow = np.arange(int(l[i]) - 1)
                     aCol = taxa_nonzero[:-1:]
                     zero_m[aRow, aCol] = 1
@@ -674,9 +683,9 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
                     aRow = np.arange(int(l[i]) - 1)
                     aCol = taxa_nonzero[:-1:]
                     zero_m[aRow, aCol] = 1
-                    zero_m[:, int(taxa_nonzero[int(l[i]) - 1]) - 1] = -1
-                    A[i] = zero_m
-                    rm(zero_m)
+                    zero_m[:, int(taxa_nonzero[int(l[i]) - 1])] = -1
+                A[i] = zero_m
+                rm(zero_m)
             else:
                 logRatiow[i] = None
                 A[i] = None
@@ -684,7 +693,7 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
             l[i] = 0
             logRatiow[i] = None
             A[i] = None
-
+            
     # obtain the list of samples whose have at least 2 non-zero taxa
     twoList = which(l > 1)
     lengthTwoList = len(twoList)
@@ -748,7 +757,7 @@ def runScrParal(
         balanceCut=balanceCut,
         qualifyRefTax=True,
     )
-
+    
     taxaNames = basicInfo["taxaNames"]
     nTaxa = basicInfo["nTaxa"]
     nPredics = basicInfo["nPredics"]
@@ -761,6 +770,7 @@ def runScrParal(
     nNorm = nTaxa - 1
     nAlphaNoInt = nPredics * nNorm
     nAlphaSelec = nPredics * nTaxa
+    
 
     # make reference taxa list
     if len(refTaxa) < nRef:
@@ -783,18 +793,18 @@ def runScrParal(
             taxon_to_be_sample, num_to_be_sample, replace=False
         )
         refTaxa = np.hstack((refTaxa, refTaxa_extra))
-        results["refTaxa"] = np.array(refTaxa)
 
         if len(refTaxa) == 0:
             raise Exception(
                 "No candidate reference taxon is available. Please try to lower the reference taxon boundary."
             )
 
-    if len(refTaxa) >= nRef:
+    if len(refTaxa) >nRef:
         if seed is not None:
             np.random.seed(seed)
         refTaxa = np.random.choice(refTaxa, nRef, replace=True)
-        results["refTaxa"] = np.array(refTaxa)
+    
+    results["refTaxa"] = np.array(refTaxa)
 
     ## run original data screen
     screen1 = originDataScreen(
@@ -817,7 +827,7 @@ def runScrParal(
     results["testCovCountMat"] = screen1["testCovCountMat"]
     results["testEstMat"] = screen1["testEstMat"]
 
-    rm(screen1)
+    # rm(screen1)
 
     nTestCov = len(testCovInd)
     results["nTestCov"] = nTestCov
@@ -825,7 +835,7 @@ def runScrParal(
     results["nPredics"] = nPredics
 
     results["taxaNames"] = taxaNames
-    rm(taxaNames)
+    # rm(taxaNames)
     return results
 
 
@@ -890,6 +900,7 @@ def Regulariz(
     adjust_method,
     seed,
 ):
+
     results = {}
     regul_start_time = timeit.default_timer()
 
@@ -988,6 +999,8 @@ def Regulariz(
         if while_loop_ind:
             print("100 percent of phase 1 analysis has been done")
 
+
+
     results["selecCountOverall"] = selectRegroup["selecCountOverall"]
     results["selecCountOverall"].columns = microbName
     results["selecCountMatIndv"] = selectRegroup["selecCountMatIndv"]
@@ -1048,9 +1061,10 @@ def Regulariz(
     rm(qualifyData)
     unestimableTaxa = np.unique(np.hstack((unestimableTaxa, taxaNames[TaxaNoReads])))
     results["unEstTaxa"] = microbName[r_in(taxaNames, unestimableTaxa)]
-
-    allRefTaxNam = np.unique(
-        np.hstack((results["finalizedBootRefTaxon"], goodIndpRefTaxNam))
+    
+    ## numpy unique will sort it !! avoid it by pandas
+    allRefTaxNam = pd.unique(
+        np.concatenate((results["finalizedBootRefTaxon"], goodIndpRefTaxNam))
     )
     nGoodIndpRef = len(allRefTaxNam)
     results["allRefTaxNam"] = allRefTaxNam
@@ -1096,6 +1110,10 @@ def Regulariz(
         round((endT - startT) / 60, 3),
         " minutes.",
     )
+    
+    
+
+    breakpoint()
     ### calculate mean ###
     fin_ref_taxon_name=np.array(list(results['estiList'].keys()))
     
@@ -1126,11 +1144,11 @@ def Regulariz(
     CI_up_mat_mean=(all_cov_list_0['CI_up_mat'].loc[:,exclu_0]+all_cov_list_1['CI_up_mat'].loc[:,exclu_1])/2
     
     ## to add
-    if len(binaryInd)>0:
-        est_save_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
-        CI_low_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
-        CI_up_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
-        se_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+    # if len(binaryInd)>0:
+    #     est_save_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+    #     CI_low_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+    #     CI_up_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
+    #     se_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
     
     p_value_unadj_mean = (est_save_mat_mean/se_mat_mean).apply(
         lambda x: (1-scipy.stats.norm.cdf(np.abs(x)))*2, 
@@ -1231,6 +1249,8 @@ def bootResuHDCI(
     maxDimension=434 * 5 * 10 ** 5,
     bootLassoAlpha=0.05,
 ):
+    
+
     results = {}
     
     # load data info
@@ -1294,13 +1314,14 @@ def bootResuHDCI(
                 bootResu_k =  bootResu
             else:
                 bootResu_k=bootResu_k+bootResu
-                
+        
+
         fin_ref_taxon_name=originRefTaxNam
         all_cov_list={}
         nTestcov=len(testCovInOrder)
         
         boot_est=bootResu_k[:,0]/nRuns
-        se_est_all=bootResu_k[:,2]/nRuns
+        se_est_all=bootResu_k[:,1]/nRuns
         boot_CI=lm_res.conf_int()
         
         ref_taxon_name=originRefTaxNam
@@ -1311,9 +1332,11 @@ def bootResuHDCI(
         CI_low_mat=np.zeros( (nTestcov, nTaxa-1) )
         se_mat=np.zeros( (nTestcov, nTaxa-1) )
         
+
+        
         for ii in range(nTestcov):
-            se_est=se_est_all[ii:len(lm_res.params):(nPredics+1)]
-            boot_est_par=boot_est[ii:len(lm_res.params):(nPredics+1)]
+            se_est=se_est_all[(ii+1):len(lm_res.params):(nPredics+1)]
+            boot_est_par=boot_est[(ii+1):len(lm_res.params):(nPredics+1)]
             
             p_value_unadj=(1-scipy.stats.norm.cdf(np.abs(boot_est_par/se_est)))*2
             boot_est_CI_low=boot_est_par-1.96*se_est
@@ -1333,7 +1356,7 @@ def bootResuHDCI(
         for k in range(nRuns):
             pass
             ## to add HDCI
-    
+            
     colname_use=microbName[microbName!=ref_taxon_name]
     
     p_value_save_mat=pd.DataFrame(p_value_save_mat, index = testCovInOrder, columns = colname_use)
@@ -1438,6 +1461,7 @@ def getScrResu(
         adjust_method=adjust_method,
         seed=seed,
     )
+    
 
     selecCountOverall = scrParal["countOfSelecForAPred"]
     selecEstOverall = scrParal["estOfSelectForAPred"]
@@ -1544,6 +1568,7 @@ def originDataScreen(
         nAlphaSelec,
         nAlphaNoInt,
         nTaxa,
+        standardize
     )
 
     startT1 = timeit.default_timer()
@@ -1559,12 +1584,9 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-        # =============================================================================
-        #         scr1Resu = Parallel(n_jobs=paraJobs,
-        #                             require='sharedmem')(delayed(forEachUnitRun_partial)(i) for i in range(nRef))
-        # =============================================================================
+
         with tqdm_joblib(tqdm(desc="Progress", total=nRef)) as progress_bar:
-            scr1Resu = Parallel(n_jobs=paraJobs, require="sharedmem")(
+            scr1Resu = Parallel(n_jobs=int(paraJobs))(
                 delayed(forEachUnitRun_partial)(i) for i in range(nRef)
             )
 
@@ -1575,25 +1597,29 @@ def originDataScreen(
             " reference taxa in Phase 1",
         )
         
-        scr1Resu = [forEachUnitRun_partial(i) for i in tqdm(range(nRef))]
+        scr1Resu = [forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Sequential")]
 
     endT = timeit.default_timer()
+    
 
     scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
     scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
 
     # create count of selection for individual testCov
-    countOfSelecForAllPred = scr1ResuSelec.sum(axis=1).reshape((nPredics, -1))
-    EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((nPredics, -1))
+    countOfSelecForAllPred = scr1ResuSelec.sum(axis=1).reshape((-1, nPredics))
+    countOfSelecForAllPred = np.transpose(countOfSelecForAllPred)
+    EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((-1, nPredics))
+    EstOfAllPred = np.transpose(EstOfAllPred)
 
     testCovCountMat = countOfSelecForAllPred[
-        testCovInd,
+        testCovInd, :
     ]
     testEstMat = EstOfAllPred[
-        testCovInd,
+        testCovInd, :
     ]
-    rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
-
+    # rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
+    
+    
     # create overall count of selection for all testCov as a whole
     countOfSelecForAPred = testCovCountMat.sum(axis=0).reshape((1, -1))
     estOfSelectForAPred = testEstMat.sum(axis=0).reshape((1, -1))
@@ -1607,10 +1633,10 @@ def originDataScreen(
     # return results
     results["testCovCountMat"] = testCovCountMat
     results["testEstMat"] = testEstMat
-    rm(testCovCountMat, testEstMat)
+    # rm(testCovCountMat, testEstMat)
     results["countOfSelecForAPred"] = countOfSelecForAPred
     results["estOfSelectForAPred"] = estOfSelectForAPred
-    rm(countOfSelecForAPred, estOfSelectForAPred)
+    # rm(countOfSelecForAPred, estOfSelectForAPred)
     return results
 
 
@@ -1625,6 +1651,7 @@ def forEachUnitRun(
     nAlphaSelec,
     nAlphaNoInt,
     nTaxa,
+    standardize,
     i,
 ):
 
@@ -1655,7 +1682,8 @@ def forEachUnitRun(
 
         x = xTildLongTild_i[rowToKeep, :]
         y = yTildLongTild_i[rowToKeep]
-
+        
+        
         if x.shape[0] > (3 * x.shape[1]):
             Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
             BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
@@ -1679,10 +1707,12 @@ def forEachUnitRun(
     EstNoInt_i = EstNoInt_i / nRuns
     selection_i = np.zeros(nAlphaSelec)
     coef_i = np.zeros(nAlphaSelec)
-    if ii == 1:
+        
+        
+    if ii == 0:
         np_assign_but(selection_i, np.linspace(0, nPredics - 1, nPredics), BetaNoInt_i)
         np_assign_but(coef_i, np.linspace(0, nPredics - 1, nPredics), EstNoInt_i)
-    if ii == nTaxa:
+    if ii == (nTaxa-1) :
         np_assign_but(
             selection_i,
             np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
@@ -1693,18 +1723,18 @@ def forEachUnitRun(
             np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
             EstNoInt_i,
         )
-    if (ii > 1) & (ii < nTaxa):
-        selection_i[0 : int((nPredics * (ii - 1)))] = BetaNoInt_i[
-            0 : int((nPredics * (ii - 1)))
+    if (ii > 0) & (ii < (nTaxa-1)):
+        selection_i[0 : int((nPredics * (ii)))] = BetaNoInt_i[
+            0 : int((nPredics * (ii)))
         ]
-        selection_i[int(nPredics * (ii - 1)) : nAlphaNoInt] = BetaNoInt_i[
-            int(nPredics * (ii - 1)) : nAlphaNoInt
+        selection_i[int(nPredics * (ii+1)) : (nAlphaSelec)] = BetaNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt+1)
         ]
-        coef_i[0 : int((nPredics * (ii - 1)))] = EstNoInt_i[
-            0 : int((nPredics * (ii - 1)))
+        coef_i[0 : int((nPredics * (ii)))] = EstNoInt_i[
+            0 : int((nPredics * (ii)))
         ]
-        coef_i[int(nPredics * (ii - 1)) : nAlphaNoInt] = EstNoInt_i[
-            int(nPredics * (ii - 1)) : nAlphaNoInt
+        coef_i[int(nPredics * (ii+1)) : (nAlphaSelec)] = EstNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt+1)
         ]
     rm(BetaNoInt_i)
     # create return vector
@@ -1714,38 +1744,37 @@ def forEachUnitRun(
     return recturnlist
 
 
-def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_by"):
-    x, y = np.array(x), np.array(y)
-
+def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
+    
+    x = pd.DataFrame(x, columns = ["x" + str(i+1) for i in range(x.shape[1])] )
+    y = pd.Series(y, name = "y")
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
-    # =============================================================================
-    #     print("length of y: ", len(y))
-    # =============================================================================
-
-    # lm_model = LinearRegression(fit_intercept = False)
-    # lm_res = lm_model.fit(x, y)
-    # lm_res.coef_
-
-    lm_res = OLS(y, x).fit()
+    ## Build the data and formula
+    dat = cbind( (y, x) )
+    formula = dat.columns[0] + " ~ " + " + ".join(dat.columns[1:])  + " - 1"
+    ## Fit the lm model
+    lm_res = smf.ols(formula, data = dat).fit()
+        
     p_value_est = lm_res.pvalues
     disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
-    p_value_est_noint = np.delete(p_value_est, disc_index, axis=0)
+    p_value_est_noint = np.delete(p_value_est.to_numpy(), disc_index, axis=0)
 
     ## this method automatically convert over 1 values to 1
     p_value_est_noint_adj = multipletests(
         p_value_est_noint, alpha=0.05, method=adjust_method
     )[1]
-
+    
+    
     coef_est = np.abs(lm_res.params)
     disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
     ## NA coef is snot considered here
-    coef_est_noint = np.delete(coef_est, disc_index, axis=0)
+    coef_est_noint = np.delete(coef_est.to_numpy(), disc_index, axis=0)
 
     # return
     results["betaNoInt"] = p_value_est_noint_adj < fwerRate
-    results["betaInt"] = p_value_est
+    # results["betaInt"] = p_value_est
     results["coef_est_noint"] = coef_est_noint
 
     return results
