@@ -1112,8 +1112,6 @@ def Regulariz(
     )
     
     
-
-    breakpoint()
     ### calculate mean ###
     fin_ref_taxon_name=np.array(list(results['estiList'].keys()))
     
@@ -1715,12 +1713,12 @@ def forEachUnitRun(
     if ii == (nTaxa-1) :
         np_assign_but(
             selection_i,
-            np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec-1, nPredics),
             BetaNoInt_i,
         )
         np_assign_but(
             coef_i,
-            np.linspace(nAlphaSelec - nPredics + 1, nAlphaSelec, nPredics),
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec-1, nPredics),
             EstNoInt_i,
         )
     if (ii > 0) & (ii < (nTaxa-1)):
