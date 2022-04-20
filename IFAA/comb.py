@@ -24,6 +24,10 @@ from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import ElasticNet
 from sklearn.linear_model import ElasticNetCV
 from sklearn.preprocessing import StandardScaler
+
+from cvglmnet import cvglmnet; from cvglmnetCoef import cvglmnetCoef
+from glmnet import glmnet; from glmnetCoef import glmnetCoef; 
+
 from statsmodels.api import OLS
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
@@ -52,8 +56,7 @@ def IFAA(
     SDThresh=0.05,
     SDquantilThresh=0,
     balanceCut=0.2,
-    seed=1,
-    CILearnerNam="ElasticNet",
+    seed=1
 ):
     # Make arguments as numpy arries
     testCov = np.array(testCov)
@@ -135,8 +138,7 @@ def IFAA(
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
         balanceCut=balanceCut,
-        seed=seed,
-        CILearnerNam=CILearnerNam,
+        seed=seed
     )
 
     rm(data)
@@ -896,8 +898,7 @@ def Regulariz(
     SDquantilThresh,
     balanceCut,
     adjust_method,
-    seed,
-    CILearnerNam,
+    seed
 ):
 
     results = {}
@@ -1090,8 +1091,7 @@ def Regulariz(
             paraJobs=paraJobs,
             sequentialRun=sequentialRun,
             standardize=standardize,
-            seed=seed,
-            CILearnerNam=CILearnerNam,
+            seed=seed
         )
         time12 = timeit.default_timer()
         print(
@@ -1288,7 +1288,6 @@ def bootResuHDCI(
     sequentialRun,
     standardize,
     seed,
-    CILearnerNam,
     maxDimension=434 * 5 * 10**5,
     bootLassoAlpha=0.05,
 ):
@@ -1399,7 +1398,6 @@ def bootResuHDCI(
             ] = se_est
 
     else:
-
         for k in range(nRuns):
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
             xSub = x[rowToKeep, :]
@@ -1408,7 +1406,6 @@ def bootResuHDCI(
             bootResu = runBootLassoHDCI(
                 x=xSub,
                 y=ySub,
-                CILearnerNam=CILearnerNam,
                 standardize=standardize,
                 paraJobs=paraJobs,
                 sequentialRun=sequentialRun,
@@ -1423,9 +1420,8 @@ def bootResuHDCI(
             else:
                 boot_est_k = boot_est_k + bootResu["Beta_LPR"]
                 boot_CI_k = boot_CI_k + bootResu["interval_LPR"]
-
+                
         results["reg_res"] = bootResu
-
         fin_ref_taxon_name = originRefTaxNam
         all_cov_list = {}
         nTestcov = len(testCovInOrder)
@@ -1438,7 +1434,6 @@ def bootResuHDCI(
         CI_up_mat = np.zeros((nTestcov, nTaxa - 1))
         CI_low_mat = np.zeros((nTestcov, nTaxa - 1))
         se_mat = np.zeros((nTestcov, nTaxa - 1))
-
         for ii in range(nTestcov):
             se_est = np.apply_along_axis(
                 partial(calculate_se, bootLassoAlpha),
@@ -2007,7 +2002,6 @@ def groupBetaToFullBeta(nTaxa, nPredics, unSelectList, newBetaNoInt):
 def runBootLassoHDCI(
     x,
     y,
-    CILearnerNam,
     standardize,
     paraJobs,
     sequentialRun,
@@ -2019,11 +2013,9 @@ def runBootLassoHDCI(
     zeroSDCut=10 ** (-20),
     correCut=0.996,
 ):
-
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
-
     # remove near constant x columns
     sdX = np.std(x, axis=0, ddof=1)
     xWithNearZeroSd = which(sdX <= zeroSDCut)
@@ -2045,7 +2037,6 @@ def runBootLassoHDCI(
     bootResu = bootLassoCI(
         x,
         y,
-        CILearnerNam=CILearnerNam,
         sequentialRun=sequentialRun,
         paraJobs=paraJobs,
         bootLassoAlpha=bootLassoAlpha,
@@ -2054,7 +2045,7 @@ def runBootLassoHDCI(
         nfolds=nfolds,
     )
 
-    beta_LPR = bootResu["Beta_LPR"]
+    beta_LPR = bootResu["Beta_LPR"][:, 0]
     betaCI_LPR = bootResu["interval_LPR"]
 
     # transform vector back
@@ -2063,7 +2054,7 @@ def runBootLassoHDCI(
             nTaxa=nBeta,
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
-            newBetaNoInt=beta_LPR,
+            newBetaNoInt=beta_LPR[:, 0],
         )
 
         beta_LPR = betaTransLasso_L["finalBeta"]
@@ -2073,7 +2064,7 @@ def runBootLassoHDCI(
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
             newBetaNoInt=betaCI_LPR[
-                0,
+                :, 0
             ],
         )
         betaCIlow_LPR = betaTransCIlow_L["finalBeta"]
@@ -2083,17 +2074,18 @@ def runBootLassoHDCI(
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
             newBetaNoInt=betaCI_LPR[
-                1,
+                :, 1
             ],
         )
         betaCIhi_LPR = betaTransCIhi_L["finalBeta"]
     else:
         betaCIlow_LPR = betaCI_LPR[
-            0,
+            :, 0
         ]
         betaCIhi_LPR = betaCI_LPR[
-            1,
+            :, 1
         ]
+    
 
     results["Beta_LPR"] = beta_LPR
     results["interval_LPR"] = np.vstack((betaCIlow_LPR, betaCIhi_LPR))
@@ -2104,7 +2096,6 @@ def runBootLassoHDCI(
 def bootLassoCI(
     x,
     y,
-    CILearnerNam,
     paraJobs,
     bootLassoAlpha,
     sequentialRun=False,
@@ -2115,33 +2106,19 @@ def bootLassoCI(
     bootB=50,
 ):
     results = {}
-
-    if standardize is True:
-        scaler = StandardScaler()
-        x = scaler.fit_transform(x)
-
-    if CILearnerNam == "Lasso":
-        l1_ratio = 1
-    elif CILearnerNam == "Ridge":
-        l1_ratio = 0.01
-    elif CILearnerNam == "ElasticNet":
-        l1_ratio = 0.5
-    else:
-        raise Exception("Please feed learn only in Lasso, Ridge, or ElasticNet")
-
-    cvResul = ElasticNetCV(
-        l1_ratio=l1_ratio, n_alphas=nLam, fit_intercept=intercept, cv=nfolds, n_jobs=-1
-    ).fit(x, y)
-
-    results["Beta_LPR"] = cvResul.coef_
-
-    learner = ElasticNet(
-        alpha=cvResul.alpha_, l1_ratio=l1_ratio, fit_intercept=intercept
+    alpha = 1 ## lasso
+    
+    cvResul = cvglmnet(x=x, y=y,
+        alpha=alpha, nlambda=nLam, standardize = standardize, intr = intercept,
+        nfolds=nfolds
     )
+
+    results["Beta_LPR"] = cvglmnetCoef(cvResul, s = 'lambda_min')[1:]
 
     ## Remove three identical est CIU CIL
     ## Remove est = 0
-    bootLassoCIUnit_partial = partial(bootLassoCIUnit, x, y, learner, standardize)
+    bootLassoCIUnit_partial = partial(bootLassoCIUnit, x, y, alpha,
+                                      cvResul['lambda_min'], standardize, intercept)
 
     if not sequentialRun:
         with tqdm_joblib(tqdm(desc="BootstrapPar", total=bootB)) as progress_bar:
@@ -2154,7 +2131,7 @@ def bootLassoCI(
             bootLassoCIUnit_partial() for _ in tqdm(range(bootB), desc="BootstrapSeq")
         ]
 
-    bootRunStack = np.stack(bootRunList, axis=0)
+    bootRunStack = np.hstack(bootRunList)
     bootCI = np.apply_along_axis(
         lambda xx: np.hstack(
             (
@@ -2162,7 +2139,7 @@ def bootLassoCI(
                 np.quantile(xx, 1 - bootLassoAlpha / 2),
             )
         ),
-        axis=0,
+        axis=1,
         arr=bootRunStack,
     )
 
@@ -2174,19 +2151,20 @@ def bootLassoCI(
 def bootLassoCIUnit(
     x,
     y,
-    learner,
+    alpha,
+    optimalLam,
     standardize=False,
+    intercept = True
 ):
 
     rowToKeep = np.random.choice(len(y), len(y), replace=True)
     xBoot = x[rowToKeep, :]
     yBoot = y[rowToKeep]
+    
+    bootFit = glmnet(x = xBoot, y = yBoot, alpha = alpha,
+                     standardize = standardize, intr = intercept)    
 
-    if standardize is True:
-        scaler = StandardScaler()
-        xBoot = scaler.fit_transform(xBoot)
-
-    return learner.fit(xBoot, yBoot).coef_
+    return glmnetCoef(bootFit, s = scipy.float64([optimalLam]))[:, 0][1:]
 
 
 # =============================================================================

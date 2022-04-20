@@ -16,8 +16,7 @@ res = IFAA(load_dataM().iloc[:,:],
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
            bootB = 30,
-           sequentialRun=True,
-           CILearnerNam="Lasso")
+           sequentialRun=False)
 
 res['sig_results']
 res['full_results']

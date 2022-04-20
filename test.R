@@ -30,7 +30,7 @@ fit <- glmnet(as.matrix(x), y,
               standardize = FALSE, 
               intercept=TRUE)
 fit$lambda
-coef(fit, s = 0.01) %>% head(10)
+coef(fit, s = 0.0045) %>% head(10)
 
 cvfit <- glmnet::cv.glmnet(as.matrix(x), y, 
                            intercept = T, 
