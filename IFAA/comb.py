@@ -19,13 +19,15 @@ from tqdm import tqdm
 from functools import partial
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import ElasticNetCV
 from sklearn.preprocessing import StandardScaler
 from statsmodels.api import OLS
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 from itertools import compress
-# import rpy2.robjects as robjects
-
 
 
 def IFAA(
@@ -51,14 +53,15 @@ def IFAA(
     SDquantilThresh=0,
     balanceCut=0.2,
     seed=1,
-):  
+    CILearnerNam="ElasticNet",
+):
     # Make arguments as numpy arries
     testCov = np.array(testCov)
     ctrlCov = np.array(ctrlCov)
     linkIDname = np.array(linkIDname)
     refTaxa = np.array(refTaxa)
     paraJobs = np.array([paraJobs])
-    
+
     # results container, a dictionary
     results = {}
 
@@ -133,37 +136,37 @@ def IFAA(
         SDquantilThresh=SDquantilThresh,
         balanceCut=balanceCut,
         seed=seed,
+        CILearnerNam=CILearnerNam,
     )
-    
+
     rm(data)
 
-    results['sig_results']=results['analysisResults']['sig_results']
-    results['full_results']=results['analysisResults']['full_results']
-    
-    results['testCov']=testCovInOrder
-    results['ctrlCov']=ctrlCov
-    results['microbName']=microbName
-    results['bootB']=bootB
-    results['refReadsThresh']=refReadsThresh
-    results['balanceCut']=balanceCut
-    results['SDThresh']=SDThresh
-    results['paraJobs']=paraJobs
-    results['SDquantilThresh']=SDquantilThresh
-    results['nRef']=nRef
-    
+    results["sig_results"] = results["analysisResults"]["sig_results"]
+    results["full_results"] = results["analysisResults"]["full_results"]
+
+    results["testCov"] = testCovInOrder
+    results["ctrlCov"] = ctrlCov
+    results["microbName"] = microbName
+    results["bootB"] = bootB
+    results["refReadsThresh"] = refReadsThresh
+    results["balanceCut"] = balanceCut
+    results["SDThresh"] = SDThresh
+    results["paraJobs"] = paraJobs
+    results["SDquantilThresh"] = SDquantilThresh
+    results["nRef"] = nRef
+
     if isinstance(seed, int):
-            results['seed']=seed
+        results["seed"] = seed
     else:
-        results['seed']="No seed used."
-                
-                
-    totalTimeMins =  (timeit.default_timer() - start_time)/60
-    print("The entire analysis took ", np.round(totalTimeMins,2), " minutes")
-                
-    results['totalTimeMins']=totalTimeMins
-                
+        results["seed"] = "No seed used."
+
+    totalTimeMins = (timeit.default_timer() - start_time) / 60
+    print("The entire analysis took ", np.round(totalTimeMins, 2), " minutes")
+
+    results["totalTimeMins"] = totalTimeMins
+
     return results
-            
+
 
 def metaData(
     MicrobData,
@@ -508,7 +511,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
     omegaRoot = {}
     for j in range(lengthTwoList):
         i = twoList[j]
-        if lLast[i] == nTaxa-1:
+        if lLast[i] == nTaxa - 1:
             omegaRoot[i] = np.eye(int(L[i] - 1))
         else:
             if L[i] == 2:
@@ -530,7 +533,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
 
                 if cSquare < 0:
                     raise Exception("no solution for square root of omega")
-                    
+
                 d = np.sqrt((0.5 * a - cSquare) / (dim - 1))
 
                 if d is None:
@@ -543,7 +546,6 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
                 )
 
         rm(L, lLast)
-        
 
     if xOnly:
         # create X_i in the regression equation using Kronecker product
@@ -582,7 +584,6 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
         results["UtildaLong"] = UtildaLong
         rm(UtildaLong)
         return results
-
 
     # if not xOnly and yOnly
     # create X_i in the regression equation using Kronecker product
@@ -659,9 +660,7 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
     taxa_0 = {}
     logRatiow = {}
     A = {}
-    
 
-    
     for i in range(nSub):
         taxa_nonzero = which(w.iloc[i, :] != 0)
         lLast[i] = np.max(taxa_nonzero)
@@ -675,7 +674,7 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
             if l[i] > 1:
                 logRatiow[i] = logwi[:-1:] - logwi[-1]
                 zero_m = np.zeros((int(l[i]) - 1, nNorm))
-                if last_nonzero == nTaxa-1:
+                if last_nonzero == nTaxa - 1:
                     aRow = np.arange(int(l[i]) - 1)
                     aCol = taxa_nonzero[:-1:]
                     zero_m[aRow, aCol] = 1
@@ -693,7 +692,7 @@ def AIcalcu(data, ref, Mprefix, covsPrefix):
             l[i] = 0
             logRatiow[i] = None
             A[i] = None
-            
+
     # obtain the list of samples whose have at least 2 non-zero taxa
     twoList = which(l > 1)
     lengthTwoList = len(twoList)
@@ -757,7 +756,7 @@ def runScrParal(
         balanceCut=balanceCut,
         qualifyRefTax=True,
     )
-    
+
     taxaNames = basicInfo["taxaNames"]
     nTaxa = basicInfo["nTaxa"]
     nPredics = basicInfo["nPredics"]
@@ -770,7 +769,6 @@ def runScrParal(
     nNorm = nTaxa - 1
     nAlphaNoInt = nPredics * nNorm
     nAlphaSelec = nPredics * nTaxa
-    
 
     # make reference taxa list
     if len(refTaxa) < nRef:
@@ -799,11 +797,11 @@ def runScrParal(
                 "No candidate reference taxon is available. Please try to lower the reference taxon boundary."
             )
 
-    if len(refTaxa) >nRef:
+    if len(refTaxa) > nRef:
         if seed is not None:
             np.random.seed(seed)
         refTaxa = np.random.choice(refTaxa, nRef, replace=True)
-    
+
     results["refTaxa"] = np.array(refTaxa)
 
     ## run original data screen
@@ -899,6 +897,7 @@ def Regulariz(
     balanceCut,
     adjust_method,
     seed,
+    CILearnerNam,
 ):
 
     results = {}
@@ -950,19 +949,17 @@ def Regulariz(
     print("33 percent of phase 1 analysis has been done")
     while while_loop_ind is False:
         loop_num = loop_num + 1
-        if loop_num >= 2:
+        if loop_num > 2:
             break
-        if len(refTaxa) < nRef_smaller:
-            refTaxa_smaller = np.hstack(
-                (
-                    refTaxa,
-                    (selectRegroup["goodIndpRefTaxWithCount"].index)[
-                        : nRef_smaller - len(refTaxa)
-                    ],
-                )
-            )
-        else:
-            refTaxa_smaller = refTaxa
+        # if len(refTaxa) < nRef_smaller:
+        #     pass
+        # else:
+        #     refTaxa_smaller = refTaxa
+
+        refTaxa_smaller = np.hstack(
+            ((selectRegroup["goodIndpRefTaxWithCount"].index)[:nRef_smaller],)
+        )
+
         fin_ref_1 = selectRegroup["finalIndpRefTax"]
         ref_taxa_1 = selectRegroup["refTaxa"]
         selectRegroup = getScrResu(
@@ -998,8 +995,6 @@ def Regulariz(
             )
         if while_loop_ind:
             print("100 percent of phase 1 analysis has been done")
-
-
 
     results["selecCountOverall"] = selectRegroup["selecCountOverall"]
     results["selecCountOverall"].columns = microbName
@@ -1061,7 +1056,7 @@ def Regulariz(
     rm(qualifyData)
     unestimableTaxa = np.unique(np.hstack((unestimableTaxa, taxaNames[TaxaNoReads])))
     results["unEstTaxa"] = microbName[r_in(taxaNames, unestimableTaxa)]
-    
+
     ## numpy unique will sort it !! avoid it by pandas
     allRefTaxNam = pd.unique(
         np.concatenate((results["finalizedBootRefTaxon"], goodIndpRefTaxNam))
@@ -1072,6 +1067,8 @@ def Regulariz(
     results["nRefUsedForEsti"] = np.min((nGoodIndpRef, nRefMaxForEsti))
 
     results["estiList"] = {}
+
+    # allRefTaxNam = np.array(["rawCount12", "rawCount31"])
 
     for iii in range(results["nRefUsedForEsti"]):
         print("Start estimation for the ", iii, "th final reference taxon")
@@ -1091,8 +1088,10 @@ def Regulariz(
             microbName=microbName,
             fwerRate=fwerRate,
             paraJobs=paraJobs,
+            sequentialRun=sequentialRun,
             standardize=standardize,
             seed=seed,
+            CILearnerNam=CILearnerNam,
         )
         time12 = timeit.default_timer()
         print(
@@ -1110,124 +1109,168 @@ def Regulariz(
         round((endT - startT) / 60, 3),
         " minutes.",
     )
-    
-    
-    ### calculate mean ###
-    fin_ref_taxon_name=np.array(list(results['estiList'].keys()))
-    
-    all_cov_sig_list={}
-    all_cov_list={}
-    
-    for i in range(len(fin_ref_taxon_name)):
-        i_name= fin_ref_taxon_name[i]
-        all_cov_list[i_name]=results['estiList'][i_name]['all_cov_list']
-        all_cov_sig_list[i_name]=results['estiList'][i_name]['sig_list_each']
-    
-    results['all_cov_list']=all_cov_list
-    results['all_cov_sig_list']=all_cov_sig_list
 
-    
-    
-    ref_taxon_name=np.array(list( all_cov_list.keys() ))
-    
+    ### calculate mean ###
+    fin_ref_taxon_name = np.array(list(results["estiList"].keys()))
+
+    all_cov_sig_list = {}
+    all_cov_list = {}
+
+    for i in range(len(fin_ref_taxon_name)):
+        i_name = fin_ref_taxon_name[i]
+        all_cov_list[i_name] = results["estiList"][i_name]["all_cov_list"]
+        all_cov_sig_list[i_name] = results["estiList"][i_name]["sig_list_each"]
+
+    results["all_cov_list"] = all_cov_list
+    results["all_cov_sig_list"] = all_cov_sig_list
+
+    ref_taxon_name = np.array(list(all_cov_list.keys()))
+
     all_cov_list_0 = all_cov_list[ref_taxon_name[0]]
     all_cov_list_1 = all_cov_list[ref_taxon_name[1]]
-        
-    exclu_0=r_ni( colnames(all_cov_list_0['est_save_mat']), ref_taxon_name[1] )
-    exclu_1=r_ni( colnames(all_cov_list_1['est_save_mat']), ref_taxon_name[0] )
-    
-    est_save_mat_mean=(all_cov_list_0['est_save_mat'].loc[:,exclu_0]+all_cov_list_1['est_save_mat'].loc[:,exclu_1])/2
-    se_mat_mean=(all_cov_list_0['se_mat'].loc[:,exclu_0]+all_cov_list_1['se_mat'].loc[:,exclu_1])/2
-    CI_low_mat_mean=(all_cov_list_0['CI_low_mat'].loc[:,exclu_0]+all_cov_list_1['CI_low_mat'].loc[:,exclu_1])/2
-    CI_up_mat_mean=(all_cov_list_0['CI_up_mat'].loc[:,exclu_0]+all_cov_list_1['CI_up_mat'].loc[:,exclu_1])/2
-    
+
+    exclu_0 = r_ni(colnames(all_cov_list_0["est_save_mat"]), ref_taxon_name[1])
+    exclu_1 = r_ni(colnames(all_cov_list_1["est_save_mat"]), ref_taxon_name[0])
+
+    est_save_mat_mean = (
+        all_cov_list_0["est_save_mat"].loc[:, exclu_0]
+        + all_cov_list_1["est_save_mat"].loc[:, exclu_1]
+    ) / 2
+    se_mat_mean = (
+        all_cov_list_0["se_mat"].loc[:, exclu_0]
+        + all_cov_list_1["se_mat"].loc[:, exclu_1]
+    ) / 2
+    CI_low_mat_mean = (
+        all_cov_list_0["CI_low_mat"].loc[:, exclu_0]
+        + all_cov_list_1["CI_low_mat"].loc[:, exclu_1]
+    ) / 2
+    CI_up_mat_mean = (
+        all_cov_list_0["CI_up_mat"].loc[:, exclu_0]
+        + all_cov_list_1["CI_up_mat"].loc[:, exclu_1]
+    ) / 2
+
     ## to add
     # if len(binaryInd)>0:
     #     est_save_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
     #     CI_low_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
     #     CI_up_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
     #     se_mat_mean.loc[biNoneryInd,results.loc['unEstTaxa']]=None
-    
-    p_value_unadj_mean = (est_save_mat_mean/se_mat_mean).apply(
-        lambda x: (1-scipy.stats.norm.cdf(np.abs(x)))*2, 
-        )
-        
+
+    p_value_unadj_mean = (est_save_mat_mean / se_mat_mean).apply(
+        lambda x: (1 - scipy.stats.norm.cdf(np.abs(x))) * 2,
+    )
+
     p_value_adj_mean = p_value_unadj_mean.apply(
         lambda x: multipletests(x, method=adjust_method)[1],
-        axis = 1,
-        result_type='expand'
-        )
-    
+        axis=1,
+        result_type="expand",
+    )
+
     p_value_adj_mean.columns = p_value_unadj_mean.columns
-    
-    colname_use=colnames(est_save_mat_mean)
-    
-    
+
+    colname_use = colnames(est_save_mat_mean)
+
     sig_ind = np.where((p_value_adj_mean < fwerRate).to_numpy())
     sig_row = sig_ind[0]
     sig_col = sig_ind[1]
-    
-    est_sig=[est_save_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    CI_low_sig=[CI_low_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    CI_up_sig=[CI_up_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    p_adj_sig=[p_value_adj_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    se_sig=[se_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    
-    est_sig=np.array(est_sig)
-    CI_low_sig=np.array(CI_low_sig)
-    CI_up_sig=np.array(CI_up_sig)
-    p_adj_sig=np.array(p_adj_sig)
-    se_sig=np.array(se_sig)
-    
-    cov_sig_index=np.sort(np.unique(sig_row))
 
-    sig_list_each_mean={}
-    
-    if len(cov_sig_index)>0:
+    est_sig = [
+        est_save_mat_mean.iloc[sig_row[my_i], sig_col[my_i]]
+        for my_i in range(len(sig_row))
+    ]
+    CI_low_sig = [
+        CI_low_mat_mean.iloc[sig_row[my_i], sig_col[my_i]]
+        for my_i in range(len(sig_row))
+    ]
+    CI_up_sig = [
+        CI_up_mat_mean.iloc[sig_row[my_i], sig_col[my_i]]
+        for my_i in range(len(sig_row))
+    ]
+    p_adj_sig = [
+        p_value_adj_mean.iloc[sig_row[my_i], sig_col[my_i]]
+        for my_i in range(len(sig_row))
+    ]
+    se_sig = [
+        se_mat_mean.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))
+    ]
+
+    est_sig = np.array(est_sig)
+    CI_low_sig = np.array(CI_low_sig)
+    CI_up_sig = np.array(CI_up_sig)
+    p_adj_sig = np.array(p_adj_sig)
+    se_sig = np.array(se_sig)
+
+    cov_sig_index = np.sort(np.unique(sig_row))
+
+    sig_list_each_mean = {}
+
+    if len(cov_sig_index) > 0:
         for iii in range(len(cov_sig_index)):
-            sig_loc=which(sig_row==cov_sig_index[iii]).astype(int)
-            est_spe_cov=est_sig[sig_loc]
-            CI_low_spe_cov=CI_low_sig[sig_loc]
-            CI_up_spe_cov=CI_up_sig[sig_loc]
-            p_adj_spe_cov=p_adj_sig[sig_loc]
-            se_spe_cov=se_sig[sig_loc]
-            
-            cov_sig_mat=np.zeros( (len(sig_loc),5) )
-            cov_sig_mat = pd.DataFrame(cov_sig_mat, 
-                                       columns = ["estimate","SE est","CI low","CI up","adj p-value"])
-            cov_sig_mat.iloc[:,0]=est_spe_cov
-            cov_sig_mat.iloc[:,1]=se_spe_cov
-            cov_sig_mat.iloc[:,2]=CI_low_spe_cov
-            cov_sig_mat.iloc[:,3]=CI_up_spe_cov
-            cov_sig_mat.iloc[:,4]=p_adj_spe_cov
-            
-            cov_sig_mat.index=colname_use[sig_col[sig_loc]]
-            sig_list_each_mean[ testCovInOrder[cov_sig_index[iii]] ] = cov_sig_mat
-    
-    results['sig_results']=sig_list_each_mean
-    full_results={}
-    
+            sig_loc = which(sig_row == cov_sig_index[iii]).astype(int)
+            est_spe_cov = est_sig[sig_loc]
+            CI_low_spe_cov = CI_low_sig[sig_loc]
+            CI_up_spe_cov = CI_up_sig[sig_loc]
+            p_adj_spe_cov = p_adj_sig[sig_loc]
+            se_spe_cov = se_sig[sig_loc]
+
+            cov_sig_mat = np.zeros((len(sig_loc), 5))
+            cov_sig_mat = pd.DataFrame(
+                cov_sig_mat,
+                columns=["estimate", "SE est", "CI low", "CI up", "adj p-value"],
+            )
+            cov_sig_mat.iloc[:, 0] = est_spe_cov
+            cov_sig_mat.iloc[:, 1] = se_spe_cov
+            cov_sig_mat.iloc[:, 2] = CI_low_spe_cov
+            cov_sig_mat.iloc[:, 3] = CI_up_spe_cov
+            cov_sig_mat.iloc[:, 4] = p_adj_spe_cov
+
+            cov_sig_mat.index = colname_use[sig_col[sig_loc]]
+            sig_list_each_mean[testCovInOrder[cov_sig_index[iii]]] = cov_sig_mat
+
+    results["sig_results"] = sig_list_each_mean
+    full_results = {}
+
     for j in range(len(testCovInOrder)):
         j_name = testCovInOrder[j]
-        est_res_save_all=pd.concat((est_save_mat_mean.loc[j_name,],
-                               se_mat_mean.loc[j_name,],
-                               CI_low_mat_mean.loc[j_name,],
-                               CI_up_mat_mean.loc[j_name,],
-                               p_value_adj_mean.loc[j_name,]),
-                                   axis = 1)
-        est_res_save_all.columns= ["estimate","SE est","CI low","CI up","adj p-value"]
-        full_results[j_name]=est_res_save_all
-        
-    results['full_results']=full_results
+        est_res_save_all = pd.concat(
+            (
+                est_save_mat_mean.loc[
+                    j_name,
+                ],
+                se_mat_mean.loc[
+                    j_name,
+                ],
+                CI_low_mat_mean.loc[
+                    j_name,
+                ],
+                CI_up_mat_mean.loc[
+                    j_name,
+                ],
+                p_value_adj_mean.loc[
+                    j_name,
+                ],
+            ),
+            axis=1,
+        )
+        est_res_save_all.columns = [
+            "estimate",
+            "SE est",
+            "CI low",
+            "CI up",
+            "adj p-value",
+        ]
+        full_results[j_name] = est_res_save_all
 
-    results['nTaxa']=nTaxa
-    results['nPredics']=nPredics
-    
+    results["full_results"] = full_results
+
+    results["nTaxa"] = nTaxa
+    results["nPredics"] = nPredics
+
     # return results
 
-    results['nRef']=nRef
+    results["nRef"] = nRef
     return results
-    
+
 
 def bootResuHDCI(
     data,
@@ -1242,22 +1285,23 @@ def bootResuHDCI(
     microbName,
     fwerRate,
     paraJobs,
+    sequentialRun,
     standardize,
     seed,
-    maxDimension=434 * 5 * 10 ** 5,
+    CILearnerNam,
+    maxDimension=434 * 5 * 10**5,
     bootLassoAlpha=0.05,
 ):
-    
 
     results = {}
-    
+
     # load data info
     basicInfo = dataInfo(
         data=data, Mprefix=Mprefix, covsPrefix=covsPrefix, binPredInd=binPredInd
     )
 
     taxaNames = basicInfo["taxaNames"]
-    ii=which( r_in(basicInfo['taxaNames'], refTaxa))
+    ii = which(r_in(basicInfo["taxaNames"], refTaxa))
     nTaxa = basicInfo["nTaxa"]
     nPredics = basicInfo["nPredics"]
     rm(basicInfo)
@@ -1267,154 +1311,245 @@ def bootResuHDCI(
     nAlphaSelec = nPredics * nTaxa
 
     countOfSelec = np.zeros(nAlphaSelec)
-    
-    resultsByRefTaxon={}
-    
-    # inital Lasso OLS estimate
-    dataForEst=dataRecovTrans(data=data,ref=refTaxa,
-                            Mprefix=Mprefix,covsPrefix=covsPrefix)
 
-    x=dataForEst['xTildalong']
-    y=dataForEst['UtildaLong']
+    resultsByRefTaxon = {}
+
+    # inital Lasso OLS estimate
+    dataForEst = dataRecovTrans(
+        data=data, ref=refTaxa, Mprefix=Mprefix, covsPrefix=covsPrefix
+    )
+
+    x = dataForEst["xTildalong"]
+    y = dataForEst["UtildaLong"]
     rm(dataForEst)
 
-    xCol=x.shape[1]
-    
-    maxSubSamplSiz=np.min( (50000,math.floor(maxDimension/xCol))  )
-    nToSamplFrom=len(y)
-    subSamplK=math.ceil(nToSamplFrom/maxSubSamplSiz)
-    if subSamplK==1:
-        maxSubSamplSiz=nToSamplFrom
-    
-    nRuns=(math.ceil(subSamplK/3))
-    
-    if x.shape[0] > x.shape[1] :
+    xCol = x.shape[1]
+
+    maxSubSamplSiz = np.min((50000, math.floor(maxDimension / xCol)))
+    nToSamplFrom = len(y)
+    subSamplK = math.ceil(nToSamplFrom / maxSubSamplSiz)
+    if subSamplK == 1:
+        maxSubSamplSiz = nToSamplFrom
+
+    nRuns = math.ceil(subSamplK / 3)
+
+    if False:  # x.shape[0] > x.shape[1] :
         for k in range(nRuns):
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
             xSub = x[rowToKeep, :]
             ySub = y[rowToKeep]
-            
+
             lm_res = OLS(ySub, xSub).fit()
-            
+
             lm_res.summary()
             lm_res.params
             lm_res.bse
             lm_res.tvalues
             lm_res.pvalues
-            
+
             bootResu = np.transpose(
-                np.vstack( (lm_res.params,
-                lm_res.bse,
-                lm_res.tvalues,
-                lm_res.pvalues) ))
+                np.vstack((lm_res.params, lm_res.bse, lm_res.tvalues, lm_res.pvalues))
+            )
 
-            if k==0 :
-                bootResu_k =  bootResu
+            if k == 0:
+                bootResu_k = bootResu
             else:
-                bootResu_k=bootResu_k+bootResu
-        
+                bootResu_k = bootResu_k + bootResu
 
-        fin_ref_taxon_name=originRefTaxNam
-        all_cov_list={}
-        nTestcov=len(testCovInOrder)
-        
-        boot_est=bootResu_k[:,0]/nRuns
-        se_est_all=bootResu_k[:,1]/nRuns
-        boot_CI=lm_res.conf_int()
-        
-        ref_taxon_name=originRefTaxNam
-        
-        p_value_save_mat=np.zeros( (nTestcov, nTaxa-1) )
-        est_save_mat=np.zeros( (nTestcov, nTaxa-1) )
-        CI_up_mat=np.zeros( (nTestcov, nTaxa-1) )
-        CI_low_mat=np.zeros( (nTestcov, nTaxa-1) )
-        se_mat=np.zeros( (nTestcov, nTaxa-1) )
-        
+        fin_ref_taxon_name = originRefTaxNam
+        all_cov_list = {}
+        nTestcov = len(testCovInOrder)
 
-        
+        boot_est = bootResu_k[:, 0] / nRuns
+        se_est_all = bootResu_k[:, 1] / nRuns
+        boot_CI = lm_res.conf_int()
+
+        ref_taxon_name = originRefTaxNam
+
+        p_value_save_mat = np.zeros((nTestcov, nTaxa - 1))
+        est_save_mat = np.zeros((nTestcov, nTaxa - 1))
+        CI_up_mat = np.zeros((nTestcov, nTaxa - 1))
+        CI_low_mat = np.zeros((nTestcov, nTaxa - 1))
+        se_mat = np.zeros((nTestcov, nTaxa - 1))
+
         for ii in range(nTestcov):
-            se_est=se_est_all[(ii+1):len(lm_res.params):(nPredics+1)]
-            boot_est_par=boot_est[(ii+1):len(lm_res.params):(nPredics+1)]
-            
-            p_value_unadj=(1-scipy.stats.norm.cdf(np.abs(boot_est_par/se_est)))*2
-            boot_est_CI_low=boot_est_par-1.96*se_est
-            boot_est_CI_up=boot_est_par+1.96*se_est
-            
-            p_value_adj=multipletests(
-                p_value_unadj, method=adjust_method
-            )[1]
-            
-            p_value_save_mat[ii,:]=p_value_adj
-            est_save_mat[ii,]=boot_est_par
-            CI_low_mat[ii,]=boot_est_CI_low
-            CI_up_mat[ii,]=boot_est_CI_up
-            se_mat[ii,]=se_est
-            
+            se_est = se_est_all[(ii + 1) : len(lm_res.params) : (nPredics + 1)]
+            boot_est_par = boot_est[(ii + 1) : len(lm_res.params) : (nPredics + 1)]
+
+            p_value_unadj = (
+                1 - scipy.stats.norm.cdf(np.abs(boot_est_par / se_est))
+            ) * 2
+            boot_est_CI_low = boot_est_par - 1.96 * se_est
+            boot_est_CI_up = boot_est_par + 1.96 * se_est
+
+            p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
+
+            p_value_save_mat[ii, :] = p_value_adj
+            est_save_mat[
+                ii,
+            ] = boot_est_par
+            CI_low_mat[
+                ii,
+            ] = boot_est_CI_low
+            CI_up_mat[
+                ii,
+            ] = boot_est_CI_up
+            se_mat[
+                ii,
+            ] = se_est
+
     else:
+
         for k in range(nRuns):
-            pass
-            ## to add HDCI
-            
-    colname_use=microbName[microbName!=ref_taxon_name]
-    
-    p_value_save_mat=pd.DataFrame(p_value_save_mat, index = testCovInOrder, columns = colname_use)
-    est_save_mat=pd.DataFrame(est_save_mat, index = testCovInOrder, columns = colname_use)
-    CI_low_mat=pd.DataFrame(CI_low_mat, index = testCovInOrder, columns = colname_use)
-    CI_up_mat=pd.DataFrame(CI_up_mat, index = testCovInOrder, columns = colname_use)
-    se_mat=pd.DataFrame(se_mat, index = testCovInOrder, columns = colname_use)
-    
+            rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
+            xSub = x[rowToKeep, :]
+            ySub = y[rowToKeep]
+
+            bootResu = runBootLassoHDCI(
+                x=xSub,
+                y=ySub,
+                CILearnerNam=CILearnerNam,
+                standardize=standardize,
+                paraJobs=paraJobs,
+                sequentialRun=sequentialRun,
+                bootLassoAlpha=bootLassoAlpha,
+                seed=seed,
+                bootB=bootB,
+            )
+
+            if k == 0:
+                boot_est_k = bootResu["Beta_LPR"]
+                boot_CI_k = bootResu["interval_LPR"]
+            else:
+                boot_est_k = boot_est_k + bootResu["Beta_LPR"]
+                boot_CI_k = boot_CI_k + bootResu["interval_LPR"]
+
+        results["reg_res"] = bootResu
+
+        fin_ref_taxon_name = originRefTaxNam
+        all_cov_list = {}
+        nTestcov = len(testCovInOrder)
+
+        boot_est = boot_est_k / nRuns
+        boot_CI = boot_CI_k / nRuns
+        ref_taxon_name = originRefTaxNam
+        p_value_save_mat = np.zeros((nTestcov, nTaxa - 1))
+        est_save_mat = np.zeros((nTestcov, nTaxa - 1))
+        CI_up_mat = np.zeros((nTestcov, nTaxa - 1))
+        CI_low_mat = np.zeros((nTestcov, nTaxa - 1))
+        se_mat = np.zeros((nTestcov, nTaxa - 1))
+
+        for ii in range(nTestcov):
+            se_est = np.apply_along_axis(
+                partial(calculate_se, bootLassoAlpha),
+                axis=0,
+                arr=boot_CI[:, (ii + 1) : boot_CI.shape[1] : (nPredics + 1)],
+            )
+
+            p_value_unadj = np.zeros(len(se_est))
+            # p_value_unadj=(1-scipy.stats.norm.cdf(np.abs(boot_est_par/se_est)))*2
+
+            boot_est_par = boot_est[(ii + 1) : boot_CI.shape[1] : (nPredics + 1)]
+            boot_est_CI_low = boot_CI[0, (ii + 1) : boot_CI.shape[1] : (nPredics + 1)]
+            boot_est_CI_up = boot_CI[1, (ii + 1) : boot_CI.shape[1] : (nPredics + 1)]
+
+            for j in range(len(boot_est_par)):
+                if se_est[j] == 0:
+                    p_value_unadj[j] = 1
+                else:
+                    p_value_unadj[j] = (
+                        1 - scipy.stats.norm.cdf(np.abs(boot_est_par[j] / se_est[j]))
+                    ) * 2
+
+            p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
+
+            p_value_save_mat[ii, :] = p_value_adj
+            est_save_mat[
+                ii,
+            ] = boot_est_par
+            CI_low_mat[
+                ii,
+            ] = boot_est_CI_low
+            CI_up_mat[
+                ii,
+            ] = boot_est_CI_up
+            se_mat[
+                ii,
+            ] = se_est
+
+    colname_use = microbName[microbName != ref_taxon_name]
+
+    p_value_save_mat = pd.DataFrame(
+        p_value_save_mat, index=testCovInOrder, columns=colname_use
+    )
+    est_save_mat = pd.DataFrame(est_save_mat, index=testCovInOrder, columns=colname_use)
+    CI_low_mat = pd.DataFrame(CI_low_mat, index=testCovInOrder, columns=colname_use)
+    CI_up_mat = pd.DataFrame(CI_up_mat, index=testCovInOrder, columns=colname_use)
+    se_mat = pd.DataFrame(se_mat, index=testCovInOrder, columns=colname_use)
+
     sig_ind = np.where((p_value_save_mat < fwerRate).to_numpy())
     sig_row = sig_ind[0]
     sig_col = sig_ind[1]
-    
-    est_sig=[est_save_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    CI_low_sig=[CI_low_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    CI_up_sig=[CI_up_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    p_adj_sig=[p_value_save_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    se_sig=[se_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
-    
-    est_sig=np.array(est_sig)
-    CI_low_sig=np.array(CI_low_sig)
-    CI_up_sig=np.array(CI_up_sig)
-    p_adj_sig=np.array(p_adj_sig)
-    se_sig=np.array(se_sig)
-    
-    cov_sig_index=np.sort(np.unique(sig_row))
 
-    sig_list_each={}
-    
-    if len(cov_sig_index)>0:
+    est_sig = [
+        est_save_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))
+    ]
+    CI_low_sig = [
+        CI_low_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))
+    ]
+    CI_up_sig = [
+        CI_up_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))
+    ]
+    p_adj_sig = [
+        p_value_save_mat.iloc[sig_row[my_i], sig_col[my_i]]
+        for my_i in range(len(sig_row))
+    ]
+    se_sig = [se_mat.iloc[sig_row[my_i], sig_col[my_i]] for my_i in range(len(sig_row))]
+
+    est_sig = np.array(est_sig)
+    CI_low_sig = np.array(CI_low_sig)
+    CI_up_sig = np.array(CI_up_sig)
+    p_adj_sig = np.array(p_adj_sig)
+    se_sig = np.array(se_sig)
+
+    cov_sig_index = np.sort(np.unique(sig_row))
+
+    sig_list_each = {}
+
+    if len(cov_sig_index) > 0:
         for iii in range(len(cov_sig_index)):
-            sig_loc=which(sig_row==cov_sig_index[iii]).astype(int)
-            est_spe_cov=est_sig[sig_loc]
-            CI_low_spe_cov=CI_low_sig[sig_loc]
-            CI_up_spe_cov=CI_up_sig[sig_loc]
-            p_adj_spe_cov=p_adj_sig[sig_loc]
-            se_spe_cov=se_sig[sig_loc]
-            
-            cov_sig_mat=np.zeros( (len(sig_loc),5) )
-            cov_sig_mat = pd.DataFrame(cov_sig_mat, 
-                                       columns = ["estimate","SE est","CI low","CI up","adj p-value"])
-            cov_sig_mat.iloc[:,0]=est_spe_cov
-            cov_sig_mat.iloc[:,1]=se_spe_cov
-            cov_sig_mat.iloc[:,2]=CI_low_spe_cov
-            cov_sig_mat.iloc[:,3]=CI_up_spe_cov
-            cov_sig_mat.iloc[:,4]=p_adj_spe_cov
-            
-            cov_sig_mat.index=colname_use[sig_col[sig_loc]]
-            sig_list_each[ testCovInOrder[cov_sig_index[iii]] ] = cov_sig_mat
-            
-            
-    all_cov_list['est_save_mat']=est_save_mat
-    all_cov_list['p_value_save_mat']=p_value_save_mat
-    all_cov_list['CI_low_mat']=CI_low_mat
-    all_cov_list['CI_up_mat']=CI_up_mat
-    all_cov_list['se_mat']=se_mat
-    
-    results['sig_list_each']=sig_list_each
-    results['all_cov_list']=all_cov_list
-    
+            sig_loc = which(sig_row == cov_sig_index[iii]).astype(int)
+            est_spe_cov = est_sig[sig_loc]
+            CI_low_spe_cov = CI_low_sig[sig_loc]
+            CI_up_spe_cov = CI_up_sig[sig_loc]
+            p_adj_spe_cov = p_adj_sig[sig_loc]
+            se_spe_cov = se_sig[sig_loc]
+
+            cov_sig_mat = np.zeros((len(sig_loc), 5))
+            cov_sig_mat = pd.DataFrame(
+                cov_sig_mat,
+                columns=["estimate", "SE est", "CI low", "CI up", "adj p-value"],
+            )
+            cov_sig_mat.iloc[:, 0] = est_spe_cov
+            cov_sig_mat.iloc[:, 1] = se_spe_cov
+            cov_sig_mat.iloc[:, 2] = CI_low_spe_cov
+            cov_sig_mat.iloc[:, 3] = CI_up_spe_cov
+            cov_sig_mat.iloc[:, 4] = p_adj_spe_cov
+
+            cov_sig_mat.index = colname_use[sig_col[sig_loc]]
+            sig_list_each[testCovInOrder[cov_sig_index[iii]]] = cov_sig_mat
+
+    all_cov_list["est_save_mat"] = est_save_mat
+    all_cov_list["p_value_save_mat"] = p_value_save_mat
+    all_cov_list["CI_low_mat"] = CI_low_mat
+    all_cov_list["CI_up_mat"] = CI_up_mat
+    all_cov_list["se_mat"] = se_mat
+
+    results["sig_list_each"] = sig_list_each
+    results["all_cov_list"] = all_cov_list
+
     return results
+
 
 def getScrResu(
     data,
@@ -1459,7 +1594,6 @@ def getScrResu(
         adjust_method=adjust_method,
         seed=seed,
     )
-    
 
     selecCountOverall = scrParal["countOfSelecForAPred"]
     selecEstOverall = scrParal["estOfSelectForAPred"]
@@ -1566,7 +1700,7 @@ def originDataScreen(
         nAlphaSelec,
         nAlphaNoInt,
         nTaxa,
-        standardize
+        standardize,
     )
 
     startT1 = timeit.default_timer()
@@ -1594,11 +1728,12 @@ def originDataScreen(
             nRef,
             " reference taxa in Phase 1",
         )
-        
-        scr1Resu = [forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Sequential")]
+
+        scr1Resu = [
+            forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Sequential")
+        ]
 
     endT = timeit.default_timer()
-    
 
     scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
     scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
@@ -1609,15 +1744,10 @@ def originDataScreen(
     EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((-1, nPredics))
     EstOfAllPred = np.transpose(EstOfAllPred)
 
-    testCovCountMat = countOfSelecForAllPred[
-        testCovInd, :
-    ]
-    testEstMat = EstOfAllPred[
-        testCovInd, :
-    ]
+    testCovCountMat = countOfSelecForAllPred[testCovInd, :]
+    testEstMat = EstOfAllPred[testCovInd, :]
     # rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
-    
-    
+
     # create overall count of selection for all testCov as a whole
     countOfSelecForAPred = testCovCountMat.sum(axis=0).reshape((1, -1))
     estOfSelectForAPred = testEstMat.sum(axis=0).reshape((1, -1))
@@ -1680,8 +1810,7 @@ def forEachUnitRun(
 
         x = xTildLongTild_i[rowToKeep, :]
         y = yTildLongTild_i[rowToKeep]
-        
-        
+
         if x.shape[0] > (3 * x.shape[1]):
             Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
             BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
@@ -1705,34 +1834,31 @@ def forEachUnitRun(
     EstNoInt_i = EstNoInt_i / nRuns
     selection_i = np.zeros(nAlphaSelec)
     coef_i = np.zeros(nAlphaSelec)
-        
-        
+
     if ii == 0:
         np_assign_but(selection_i, np.linspace(0, nPredics - 1, nPredics), BetaNoInt_i)
         np_assign_but(coef_i, np.linspace(0, nPredics - 1, nPredics), EstNoInt_i)
-    if ii == (nTaxa-1) :
+    if ii == (nTaxa - 1):
         np_assign_but(
             selection_i,
-            np.linspace(nAlphaSelec - nPredics, nAlphaSelec-1, nPredics),
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
             BetaNoInt_i,
         )
         np_assign_but(
             coef_i,
-            np.linspace(nAlphaSelec - nPredics, nAlphaSelec-1, nPredics),
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
             EstNoInt_i,
         )
-    if (ii > 0) & (ii < (nTaxa-1)):
+    if (ii > 0) & (ii < (nTaxa - 1)):
         selection_i[0 : int((nPredics * (ii)))] = BetaNoInt_i[
             0 : int((nPredics * (ii)))
         ]
-        selection_i[int(nPredics * (ii+1)) : (nAlphaSelec)] = BetaNoInt_i[
-            int(nPredics * (ii)) : (nAlphaNoInt+1)
+        selection_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = BetaNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt + 1)
         ]
-        coef_i[0 : int((nPredics * (ii)))] = EstNoInt_i[
-            0 : int((nPredics * (ii)))
-        ]
-        coef_i[int(nPredics * (ii+1)) : (nAlphaSelec)] = EstNoInt_i[
-            int(nPredics * (ii)) : (nAlphaNoInt+1)
+        coef_i[0 : int((nPredics * (ii)))] = EstNoInt_i[0 : int((nPredics * (ii)))]
+        coef_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = EstNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt + 1)
         ]
     rm(BetaNoInt_i)
     # create return vector
@@ -1743,18 +1869,18 @@ def forEachUnitRun(
 
 
 def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
-    
-    x = pd.DataFrame(x, columns = ["x" + str(i+1) for i in range(x.shape[1])] )
-    y = pd.Series(y, name = "y")
+
+    x = pd.DataFrame(x, columns=["x" + str(i + 1) for i in range(x.shape[1])])
+    y = pd.Series(y, name="y")
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
     ## Build the data and formula
-    dat = cbind( (y, x) )
-    formula = dat.columns[0] + " ~ " + " + ".join(dat.columns[1:])  + " - 1"
+    dat = cbind((y, x))
+    formula = dat.columns[0] + " ~ " + " + ".join(dat.columns[1:]) + " - 1"
     ## Fit the lm model
-    lm_res = smf.ols(formula, data = dat).fit()
-        
+    lm_res = smf.ols(formula, data=dat).fit()
+
     p_value_est = lm_res.pvalues
     disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
     p_value_est_noint = np.delete(p_value_est.to_numpy(), disc_index, axis=0)
@@ -1763,8 +1889,7 @@ def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
     p_value_est_noint_adj = multipletests(
         p_value_est_noint, alpha=0.05, method=adjust_method
     )[1]
-    
-    
+
     coef_est = np.abs(lm_res.params)
     disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
     ## NA coef is snot considered here
@@ -1790,46 +1915,41 @@ def runGlmnet(
     intercept=True,
     zeroSDCut=10 ** (-20),
 ):
+
     results = {}
     nBeta = x.shape[1]
     nObsAll = len(y)
 
     # remove near constant x columns
-    sdX = np.std(x, axis=0)
+    sdX = np.std(x, axis=0, ddof=1)
     xWithNearZeroSd = which(sdX <= zeroSDCut)
     if len(xWithNearZeroSd) > 0:
         x = np.delete(x, xWithNearZeroSd, axis=1)
     rm(sdX)
 
-    # calculate lambda max
-    if family == "gaussian":
-        lamMax = np.max(np.abs((x * y[:, np.newaxis]).sum(0))) / nObsAll
-
-    lamVec = np.linspace(lamMax, 0, nLam + 1)[0:nLam]
     if standardize is True:
         scaler = StandardScaler()
         x = scaler.fit_transform(x)
 
-    cvStartTime = timeit.default_timer()
-    cvStartTimei = timeit.default_timer()
-
+    # from sklearn.model_selection import KFold
+    # kfold = KFold(n_splits=nfolds, shuffle = True, random_state=123)
+    ## LASSO and LM (py); Glmnet (R)
+    ## Seed
     cvResul = LassoCV(
-        alphas=lamVec, fit_intercept=intercept, cv=nfolds, n_jobs=-1, selection="random"
+        n_alphas=nLam, fit_intercept=intercept, cv=nfolds, n_jobs=-1, tol=1e-2
     ).fit(x, y)
-    lamOpi = cvResul.alpha_
 
-    cvExeTimei = (timeit.default_timer() - cvStartTimei) / 60
-    cvAllTime = (timeit.default_timer() - cvStartTime) / 60
-
-    finalLassoRun = Lasso(alpha=lamOpi, fit_intercept=intercept).fit(x, y)
-
-    finalLassoRunBeta = finalLassoRun.coef_
-
-    finalLassoRunBeta
+    finalLassoRunBeta = cvResul.coef_
 
     # convert back to the full beta if there near constant x columns
     if len(xWithNearZeroSd) > 0:
-        pass
+        betaTrans = groupBetaToFullBeta(
+            nTaxa=nBeta,
+            nPredics=1,
+            unSelectList=np.sort(xWithNearZeroSd),
+            newBetaNoInt=finalLassoRunBeta,
+        )
+        beta = betaTrans["finalBeta"]
     else:
         beta = finalLassoRunBeta
 
@@ -1839,9 +1959,240 @@ def runGlmnet(
     return results
 
 
+def groupBetaToFullBeta(nTaxa, nPredics, unSelectList, newBetaNoInt):
+    results = {}
+    unSelectList = np.unique(np.sort(unSelectList))
+    nUnSelec = len(unSelectList)
+    nAlphaSelec = nTaxa * nPredics
+    nNewBetaNoInt = len(newBetaNoInt)
+
+    if nNewBetaNoInt != ((nTaxa - nUnSelec) * nPredics):
+        raise Exception(
+            "Error: Beta dimension from grouped analyis does not match the expected number"
+        )
+
+    if nTaxa < np.max(unSelectList) | 1 > np.min(unSelectList):
+        raise Exception("Error: unSelectList out of range")
+
+    finalBeta = newBetaNoInt
+
+    for i in range(unSelectList):
+        finalBetaTemp = np.empty((len(finalBeta) + nPredics))
+        lengthTemp = len(finalBetaTemp)
+
+        if i == 1:
+            finalBetaTemp[0:nPredics] = 0
+            finalBetaTemp[nPredics : (lengthTemp + 1)] = finalBeta
+            finalBeta = finalBetaTemp
+
+        if i > 1:
+            if (i * nPredics) <= len(finalBeta):
+                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta[
+                    0 : ((i - 1) * nPredics)
+                ]
+                finalBetaTemp[((i - 1) * nPredics) : (i * nPredics)] = 0
+                finalBetaTemp[(i * nPredics) : lengthTemp] = finalBeta[
+                    ((i - 1) * nPredics) : (len(finalBeta))
+                ]
+            else:
+                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta
+                finalBetaTemp[((i - 1) * nPredics) : lengthTemp] = 0
+
+            finalBeta = finalBetaTemp
+
+    results["finalBeta"] = finalBeta
+    return results
+
+
+def runBootLassoHDCI(
+    x,
+    y,
+    CILearnerNam,
+    standardize,
+    paraJobs,
+    sequentialRun,
+    bootB,
+    bootLassoAlpha,
+    seed,
+    nfolds=10,
+    lambdaOPT=np.empty(0),
+    zeroSDCut=10 ** (-20),
+    correCut=0.996,
+):
+
+    results = {}
+    nBeta = x.shape[1]
+    nObsAll = len(y)
+
+    # remove near constant x columns
+    sdX = np.std(x, axis=0, ddof=1)
+    xWithNearZeroSd = which(sdX <= zeroSDCut)
+
+    df_cor = np.corrcoef(x, rowvar=False)
+    excluCorColumns = which(
+        np.apply_along_axis(
+            lambda x: np.any(np.abs(x) >= correCut), 0, np.tril(df_cor, -1)
+        )
+    )
+    xWithNearZeroSd = np.sort(np.unique(np.hstack((xWithNearZeroSd, excluCorColumns))))
+
+    if len(xWithNearZeroSd) > 0:
+        x = np.delete(x, xWithNearZeroSd, axis=1)
+    rm(sdX)
+
+    nearZeroSd = len(xWithNearZeroSd)
+    ## Bootstrap
+    bootResu = bootLassoCI(
+        x,
+        y,
+        CILearnerNam=CILearnerNam,
+        sequentialRun=sequentialRun,
+        paraJobs=paraJobs,
+        bootLassoAlpha=bootLassoAlpha,
+        standardize=standardize,
+        bootB=bootB,
+        nfolds=nfolds,
+    )
+
+    beta_LPR = bootResu["Beta_LPR"]
+    betaCI_LPR = bootResu["interval_LPR"]
+
+    # transform vector back
+    if len(xWithNearZeroSd) > 0:
+        betaTransLasso_L = groupBetaToFullBeta(
+            nTaxa=nBeta,
+            nPredics=1,
+            unSelectList=np.sort(xWithNearZeroSd),
+            newBetaNoInt=beta_LPR,
+        )
+
+        beta_LPR = betaTransLasso_L["finalBeta"]
+
+        betaTransCIlow_L = groupBetaToFullBeta(
+            nTaxa=nBeta,
+            nPredics=1,
+            unSelectList=np.sort(xWithNearZeroSd),
+            newBetaNoInt=betaCI_LPR[
+                0,
+            ],
+        )
+        betaCIlow_LPR = betaTransCIlow_L["finalBeta"]
+
+        betaTransCIhi_L = groupBetaToFullBeta(
+            nTaxa=nBeta,
+            nPredics=1,
+            unSelectList=np.sort(xWithNearZeroSd),
+            newBetaNoInt=betaCI_LPR[
+                1,
+            ],
+        )
+        betaCIhi_LPR = betaTransCIhi_L["finalBeta"]
+    else:
+        betaCIlow_LPR = betaCI_LPR[
+            0,
+        ]
+        betaCIhi_LPR = betaCI_LPR[
+            1,
+        ]
+
+    results["Beta_LPR"] = beta_LPR
+    results["interval_LPR"] = np.vstack((betaCIlow_LPR, betaCIhi_LPR))
+
+    return results
+
+
+def bootLassoCI(
+    x,
+    y,
+    CILearnerNam,
+    paraJobs,
+    bootLassoAlpha,
+    sequentialRun=False,
+    standardize=False,
+    nfolds=10,
+    nLam=100,
+    intercept=True,
+    bootB=50,
+):
+    results = {}
+
+    if standardize is True:
+        scaler = StandardScaler()
+        x = scaler.fit_transform(x)
+
+    if CILearnerNam == "Lasso":
+        l1_ratio = 1
+    elif CILearnerNam == "Ridge":
+        l1_ratio = 0.01
+    elif CILearnerNam == "ElasticNet":
+        l1_ratio = 0.5
+    else:
+        raise Exception("Please feed learn only in Lasso, Ridge, or ElasticNet")
+
+    cvResul = ElasticNetCV(
+        l1_ratio=l1_ratio, n_alphas=nLam, fit_intercept=intercept, cv=nfolds, n_jobs=-1
+    ).fit(x, y)
+
+    results["Beta_LPR"] = cvResul.coef_
+
+    learner = ElasticNet(
+        alpha=cvResul.alpha_, l1_ratio=l1_ratio, fit_intercept=intercept
+    )
+
+    ## Remove three identical est CIU CIL
+    ## Remove est = 0
+    bootLassoCIUnit_partial = partial(bootLassoCIUnit, x, y, learner, standardize)
+
+    if not sequentialRun:
+        with tqdm_joblib(tqdm(desc="BootstrapPar", total=bootB)) as progress_bar:
+            bootRunList = Parallel(n_jobs=int(paraJobs))(
+                delayed(bootLassoCIUnit_partial)() for _ in range(bootB)
+            )
+
+    if sequentialRun:
+        bootRunList = [
+            bootLassoCIUnit_partial() for _ in tqdm(range(bootB), desc="BootstrapSeq")
+        ]
+
+    bootRunStack = np.stack(bootRunList, axis=0)
+    bootCI = np.apply_along_axis(
+        lambda xx: np.hstack(
+            (
+                np.quantile(xx, bootLassoAlpha / 2),
+                np.quantile(xx, 1 - bootLassoAlpha / 2),
+            )
+        ),
+        axis=0,
+        arr=bootRunStack,
+    )
+
+    results["interval_LPR"] = bootCI
+
+    return results
+
+
+def bootLassoCIUnit(
+    x,
+    y,
+    learner,
+    standardize=False,
+):
+
+    rowToKeep = np.random.choice(len(y), len(y), replace=True)
+    xBoot = x[rowToKeep, :]
+    yBoot = y[rowToKeep]
+
+    if standardize is True:
+        scaler = StandardScaler()
+        xBoot = scaler.fit_transform(xBoot)
+
+    return learner.fit(xBoot, yBoot).coef_
+
+
 # =============================================================================
 # Help Functions
 # =============================================================================
+
 
 def colnames(x):
     if not isinstance(x, pd.core.frame.DataFrame):
@@ -1926,3 +2277,7 @@ def tqdm_joblib(tqdm_object):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
+
+
+def calculate_se(bootLassoAlpha, x):
+    return np.abs(x[1] - x[0]) / (2 * scipy.stats.norm.ppf(1 - bootLassoAlpha / 2))
