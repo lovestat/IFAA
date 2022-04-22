@@ -9,8 +9,8 @@ results <- IFAA(MicrobData = dataM[, ],
                 paraJobs = 4,
                 refTaxa = glue::glue("rawCount{1:40}"),
                 seed = 1,
-                bootB = 30,
-                sequentialRun=T)
+                bootB = 100,
+                sequentialRun=F)
 
 
 

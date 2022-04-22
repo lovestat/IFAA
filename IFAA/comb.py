@@ -60,6 +60,7 @@ def IFAA(
     results = {}
     if seed is not None:
         np.random.seed(seed)
+        scipy.random.seed(seed)
     start_time = timeit.default_timer()
 
     runMeta = metaData(
@@ -430,7 +431,6 @@ def dataInfo(
     balanceCut=None,
     qualifyRefTax=False,
 ):
-    breakpoint()
     results = {}
 
     # get the original sample size
@@ -833,6 +833,7 @@ def runScrParal(
     if len(refTaxa) < nRef:
         if seed is not None:
             np.random.seed(seed)
+            scipy.random.seed(seed)
 
         taxon_to_be_sample = results["goodRefTaxaCandi"][
             r_ni(results["goodRefTaxaCandi"], refTaxa)
@@ -859,6 +860,7 @@ def runScrParal(
     if len(refTaxa) > nRef:
         if seed is not None:
             np.random.seed(seed)
+            scipy.random.seed(seed)
         refTaxa = np.random.choice(refTaxa, nRef, replace=True)
 
     results["refTaxa"] = np.array(refTaxa)
@@ -1138,7 +1140,7 @@ def Regulariz(
     # allRefTaxNam = np.array(["rawCount12", "rawCount31"])
 
     for iii in range(results["nRefUsedForEsti"]):
-        print("Start estimation for the ", iii, "th final reference taxon")
+        print("Start estimation for the ", iii+1, "th final reference taxon")
         time11 = timeit.default_timer()
         originTaxNam = allRefTaxNam[iii]
         newRefTaxNam = taxaNames[r_in(microbName, originTaxNam)]
@@ -1758,7 +1760,8 @@ def originDataScreen(
         data,
         nAlphaSelec,
         nAlphaNoInt,
-        nTaxa
+        nTaxa,
+        seed
     )
 
     startT1 = timeit.default_timer()
@@ -1775,7 +1778,7 @@ def originDataScreen(
             " reference taxa in Phase 1",
         )
 
-        with tqdm_joblib(tqdm(desc="Progress", total=nRef)) as progress_bar:
+        with tqdm_joblib(tqdm(desc="Phase1-Par", total=nRef)) as progress_bar:
             scr1Resu = Parallel(n_jobs=int(paraJobs))(
                 delayed(forEachUnitRun_partial)(i) for i in range(nRef)
             )
@@ -1788,7 +1791,7 @@ def originDataScreen(
         )
 
         scr1Resu = [
-            forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Sequential")
+            forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Phase1-Seq")
         ]
 
     endT = timeit.default_timer()
@@ -1837,9 +1840,12 @@ def forEachUnitRun(
     nAlphaSelec,
     nAlphaNoInt,
     nTaxa,
-    i,
+    seed,
+    i
 ):
-
+    np.random.seed(seed + i)
+    scipy.random.seed(seed + i)
+    
     ii = which(taxaNames == refTaxa[i])
     dataForEst = dataRecovTrans(
         data=data, ref=refTaxa[i], Mprefix=Mprefix, covsPrefix=covsPrefix
@@ -2082,6 +2088,7 @@ def runBootLassoHDCI(
     bootResu = bootLassoCI(
         x,
         y,
+        seed = seed,
         sequentialRun=sequentialRun,
         paraJobs=paraJobs,
         bootLassoAlpha=bootLassoAlpha,
@@ -2140,6 +2147,7 @@ def runBootLassoHDCI(
 def bootLassoCI(
     x,
     y,
+    seed,
     paraJobs,
     bootLassoAlpha,
     sequentialRun=False,
@@ -2147,10 +2155,13 @@ def bootLassoCI(
     nfolds=10,
     nLam=100,
     intercept=True,
-    bootB=50,
+    bootB=50
 ):
     results = {}
     alpha = 1 ## lasso
+    
+    np.random.seed(seed)
+    scipy.random.seed(seed)
     
     cvResul = cvglmnet(x=x, y=y,
         alpha=alpha, nlambda=nLam, standardize = standardize, intr = intercept,
@@ -2162,17 +2173,17 @@ def bootLassoCI(
     ## Remove three identical est CIU CIL
     ## Remove est = 0
     bootLassoCIUnit_partial = partial(bootLassoCIUnit, x, y, alpha,
-                                      cvResul['lambda_min'], standardize, intercept)
+                                      cvResul['lambda_min'], standardize, intercept, seed)
 
     if not sequentialRun:
-        with tqdm_joblib(tqdm(desc="BootstrapPar", total=bootB)) as progress_bar:
+        with tqdm_joblib(tqdm(desc="Phase2-Par", total=bootB)) as progress_bar:
             bootRunList = Parallel(n_jobs=int(paraJobs))(
-                delayed(bootLassoCIUnit_partial)() for _ in range(bootB)
+                delayed(bootLassoCIUnit_partial)(i) for i in range(bootB)
             )
 
     if sequentialRun:
         bootRunList = [
-            bootLassoCIUnit_partial() for _ in tqdm(range(bootB), desc="BootstrapSeq")
+            bootLassoCIUnit_partial() for _ in tqdm(range(bootB), desc="Phase2-Seq")
         ]
 
     bootRunStack = np.hstack(bootRunList)
@@ -2197,10 +2208,15 @@ def bootLassoCIUnit(
     y,
     alpha,
     optimalLam,
-    standardize=False,
-    intercept = True
+    standardize,
+    intercept,
+    seed,
+    i
 ):
-
+    
+    np.random.seed(seed + i)
+    scipy.random.seed(seed + i)
+    
     rowToKeep = np.random.choice(len(y), len(y), replace=True)
     xBoot = x[rowToKeep, :]
     yBoot = y[rowToKeep]
