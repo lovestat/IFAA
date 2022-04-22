@@ -15,8 +15,8 @@ res = IFAA(load_dataM().iloc[:,:],
            paraJobs = 4,
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
-           bootB = 30,
-           sequentialRun=False)
+           bootB = 100,
+           sequentialRun=True)
 
 res['sig_results']
 res['full_results']
@@ -77,18 +77,20 @@ fit = glmnet(x = x.copy(),
 
 glmnetCoef(fit, s = scipy.float64([0.01]), exact = False)
 
+len(glmnetCoef(fit, s = scipy.float64([0.01]), exact = False))
 
 cvfit = cvglmnet(x = x.copy(), 
                  y = y.copy(), 
                  ptype = 'mse', 
                  nfolds = 10,
                  alpha = 1, 
-                 standardize = False)
+                 standardize = False,
+                 intr = True)
 cvfit['lambda_min']
 
 cvglmnetCoef(cvfit, s = 'lambda_min')
 
-
+len(cvglmnetCoef(cvfit, s = 'lambda_min'))
 
 
 

@@ -10,7 +10,7 @@ results <- IFAA(MicrobData = dataM[, ],
                 refTaxa = glue::glue("rawCount{1:40}"),
                 seed = 1,
                 bootB = 30,
-                sequentialRun=F)
+                sequentialRun=T)
 
 
 
@@ -29,16 +29,17 @@ fit <- glmnet(as.matrix(x), y,
               alpha=1, 
               standardize = FALSE, 
               intercept=TRUE)
+
 fit$lambda
 coef(fit, s = 0.0045) %>% head(10)
-
+length(coef(fit, s = 0.0045))
 cvfit <- glmnet::cv.glmnet(as.matrix(x), y, 
-                           intercept = T, 
+                           intercept = F, 
                            standardize = F)
 cvfit$lambda
 cvfit$lambda.min
-coef(cvfit, s = cvfit$lambda.min)%>% head(10)
-
+coef(cvfit, s = cvfit$lambda.min)
+length(coef(cvfit, s = cvfit$lambda.min))
 
 
 
