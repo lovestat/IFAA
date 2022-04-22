@@ -14,6 +14,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
+import glmnet_python
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from functools import partial
@@ -52,7 +53,7 @@ def IFAA(
     standardize=False,
     sequentialRun=False,
     refReadsThresh=0.2,
-    taxkeepThresh=1,
+    taxDropThresh=0,
     SDThresh=0.05,
     SDquantilThresh=0,
     balanceCut=0.2,
@@ -74,11 +75,12 @@ def IFAA(
         MicrobData=MicrobData,
         CovData=CovData,
         linkIDname=linkIDname,
-        taxkeepThresh=taxkeepThresh,
+        taxDropThresh=taxDropThresh,
+        standardize=standardize,
         testCov=testCov,
         ctrlCov=ctrlCov,
         testMany=testMany,
-        ctrlMany=ctrlMany,
+        ctrlMany=ctrlMany
     )
 
     data = runMeta["data"]
@@ -93,9 +95,10 @@ def IFAA(
     microbName = runMeta["microbName"]
     newMicrobNames = runMeta["newMicrobNames"]
     results["covriateNames"] = runMeta["xNames"]
+    binaryInd_test = testCovInd[r_in(testCovInd, binaryInd)]
     del runMeta
 
-    if (refTaxa is not None) and (len(refTaxa) > 0):
+    if len(refTaxa) > 0 :
         if sum(r_in(refTaxa, microbName)) != len(refTaxa):
             raise Exception(
                 """
@@ -125,6 +128,7 @@ def IFAA(
         nRef=nRef,
         nRefMaxForEsti=nRefMaxForEsti,
         binaryInd=binaryInd,
+        binaryInd_test=binaryInd_test,
         covsPrefix=covsPrefix,
         Mprefix=Mprefix,
         refTaxa=refTaxa_newNam,
@@ -132,7 +136,6 @@ def IFAA(
         adjust_method=adjust_method,
         fwerRate=fdrRate,
         bootB=bootB,
-        standardize=standardize,
         sequentialRun=sequentialRun,
         refReadsThresh=refReadsThresh,
         SDThresh=SDThresh,
@@ -174,7 +177,8 @@ def metaData(
     MicrobData,
     CovData,
     linkIDname,
-    taxkeepThresh,
+    taxDropThresh,
+    standardize,
     testCov=np.empty(0),
     ctrlCov=np.empty(0),
     testMany=True,
@@ -260,9 +264,9 @@ def metaData(
     rm(allRawData)
 
     # check zero taxa and subjects with zero taxa reads
-    numTaxaNoReads = sum(colSums(Mdata_raw != 0) <= taxkeepThresh)
+    numTaxaNoReads = sum(colSums(Mdata_raw != 0) <= taxDropThresh)
     if numTaxaNoReads > 0:
-        Mdata_raw = Mdata_raw.loc[:, colSums(Mdata_raw != 0) > taxkeepThresh]
+        Mdata_raw = Mdata_raw.loc[:, colSums(Mdata_raw != 0) > taxDropThresh]
         print(
             "There are ",
             numTaxaNoReads,
@@ -300,13 +304,17 @@ def metaData(
 
     if Covariates.isna().sum().sum() > 0:
         print("Samples with missing covariate values are removed from the analysis.")
-
-    ## to add non-numeric add
-
+    
+    if not Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype).all() :
+        warnings.warn(
+            "There are non-numeric variables in the control covariates"
+        )
+        nonNumCols = which( ~ Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype) ) # Negate boolean values by ~ in pandas
+        for i in range(len(nonNumCols)):
+            Covariates[ctrlCov[nonNumCols[i]]] = pd.factorize( Covariates[ctrlCov[nonNumCols[i]]] )[0]
+        
     xNames = colnames(Covariates)
     nCov = len(xNames)
-
-    ## to add binary check
 
     binCheck = Covariates.nunique()
 
@@ -315,28 +323,35 @@ def metaData(
         results["varNamForBin"] = xNames[binCheck == 2]
         results["nBinVars"] = len(results["varNamForBin"])
 
-        for i in range(results["varNamForBin"]):
-            mini = min(Covariates.iloc[:, i])
-            maxi = max(Covariates.iloc[:, i])
-            if any(mini != 0 and maxi != 1):
-                Covariates.iloc[
-                    Covariates.iloc[:, i] == mini, results["varNamForBin"][i]
+        # Convert binary variables into 0 and 1
+        for i in range(results["nBinVars"]):
+            iNam = results["varNamForBin"][i]
+            mini = min(Covariates.loc[:, iNam])
+            maxi = max(Covariates.loc[:, iNam])
+            if any( (mini != 0, maxi != 1) ):
+                Covariates.loc[
+                    Covariates.loc[:, iNam] == mini, iNam
                 ] = 0
-                Covariates.iloc[
-                    Covariates.iloc[:, i] == maxi, results["varNamForBin"][i]
+                Covariates.loc[
+                    Covariates.loc[:, iNam] == maxi, iNam
                 ] = 1
                 print(
                     "Binary covariate",
-                    i,
+                    iNam,
                     "is not coded as 0/1 which may generate analysis bias. It has been changed to 0/1. The changed covariates data can be extracted from the result file.",
                 )
+    else :
+        results["nBinVars"] = 0
+        binaryInd = []
+        results["varNamForBin"] = []
 
-    results["nBinVars"] = 0
-    binaryInd = []
-    results["varNamForBin"] = []
-
-    results["binaryInd"] = []
+    results["binaryInd"] = binaryInd
     results["xNames"] = colnames(Covariates)
+    
+    if standardize :
+        temp = Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"]) ]
+        Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"]) ] = temp / temp.std()
+    
     xNewNames = np.array(["x" + str(i + 1) for i in range(len(xNames))])
     Covariates = Covariates.rename(columns=dict(zip(colnames(Covariates), xNewNames)))
     results["covsPrefix"] = "x"
@@ -361,12 +376,55 @@ def metaData(
     del (MdataWithId_new, CovarWithId_new)
 
     Mdata_omit = dataOmit.loc[:, np.array(newMicrobNames1)]
-
+    
     # check taxa with zero or 1 read again after all missing data removed
-    # to add
+    numTaxaNoReads=np.sum(colSums(Mdata_omit!=0)<=taxDropThresh)
+    if numTaxaNoReads==0 :
+       results["data"] = dataOmit
+      
+    if(numTaxaNoReads>0):
+        dataOmit_noTaxa=dataOmit.loc[:, ~ r_in(colnames(dataOmit), newMicrobNames1)]
+        microbToRetain=newMicrobNames1[~(colSums(Mdata_omit!=0)<=taxDropThresh)]
+        print("There are ",numTaxaNoReads," taxa without any sequencing reads after merging and removing all missing data, and excluded from the analysis")
+                
+        MdataToRetain=Mdata_omit[microbToRetain]
+        microbName=microbName1[r_in(newMicrobNames1, microbToRetain)]
+        results['microbName']=microbName
+        newMicrobNames1= ["microb" + str(i+1) for i in range(len(microbName))]
+        newMicrobNames=newMicrobNames1
+        results['newMicrobNames']=newMicrobNames
+        MdataToRetain.columns=microbToRetain
+        results['data']=cbind( (dataOmit_noTaxa,MdataToRetain) )
 
-    results["data"] = dataOmit
+    # output data summary
+    print("Data dimensions (after removing missing data if any):")
+    print(results['data'].shape[0]," samples")
+    print(ncol(Mdata)," taxa/OTU/ASV")
+    
+    if not MZILN:
+        print(len(results['testCovInOrder'])," testCov variables in the analysis")
+    if MZILN :
+        print(len(results['testCovInOrder'])," covariates in the analysis")
+        
+    if len(results['testCovInOrder'])>0 :
+        
+        if not MZILN: print("These are the testCov variables:")
+        if MZILN: print("These are the covariates:")
 
+        print(*results['testCovInOrder'], sep = ", ")
+        
+    if not MZILN:
+        print(len(ctrlCov)," ctrlCov variables in the analysis ")        
+        if len(ctrlCov)>0:
+            print("These are the ctrlCov variables:")
+            print(*ctrlCov, sep = ", ")
+    
+    print(results['nBinVars'], " binary covariates in the analysis")
+    
+    if results['nBinVars']>0:
+        print("These are the binary covariates:")
+        print(results['varNamForBin'])
+    
     return results
 
 
@@ -1864,7 +1922,6 @@ def forEachUnitRun(
 
 
 def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
-
     x = pd.DataFrame(x, columns=["x" + str(i + 1) for i in range(x.shape[1])])
     y = pd.Series(y, name="y")
     results = {}
