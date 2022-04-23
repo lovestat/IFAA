@@ -18,11 +18,12 @@ import glmnet_python
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from functools import partial
-from cvglmnet import cvglmnet; from cvglmnetCoef import cvglmnetCoef
-from glmnet import glmnet; from glmnetCoef import glmnetCoef; 
+from cvglmnet import cvglmnet
+from cvglmnetCoef import cvglmnetCoef
+from glmnet import glmnet
+from glmnetCoef import glmnetCoef
 from statsmodels.api import OLS
 from statsmodels.stats.multitest import multipletests
-from itertools import compress
 
 
 def IFAA(
@@ -47,7 +48,7 @@ def IFAA(
     SDThresh=0.05,
     SDquantilThresh=0,
     balanceCut=0.2,
-    seed=1
+    seed=1,
 ):
     # Make arguments as numpy arries
     testCov = np.array(testCov)
@@ -72,7 +73,7 @@ def IFAA(
         testCov=testCov,
         ctrlCov=ctrlCov,
         testMany=testMany,
-        ctrlMany=ctrlMany
+        ctrlMany=ctrlMany,
     )
 
     data = runMeta["data"]
@@ -90,7 +91,7 @@ def IFAA(
     binaryInd_test = testCovInd[r_in(testCovInd, binaryInd)]
     del runMeta
 
-    if len(refTaxa) > 0 :
+    if len(refTaxa) > 0:
         if sum(r_in(refTaxa, microbName)) != len(refTaxa):
             raise Exception(
                 """
@@ -133,7 +134,7 @@ def IFAA(
         SDThresh=SDThresh,
         SDquantilThresh=SDquantilThresh,
         balanceCut=balanceCut,
-        seed=seed
+        seed=seed,
     )
 
     rm(data)
@@ -296,15 +297,17 @@ def metaData(
 
     if Covariates.isna().sum().sum() > 0:
         print("Samples with missing covariate values are removed from the analysis.")
-    
-    if not Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype).all() :
-        warnings.warn(
-            "There are non-numeric variables in the control covariates"
-        )
-        nonNumCols = which( ~ Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype) ) # Negate boolean values by ~ in pandas
+
+    if not Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype).all():
+        warnings.warn("There are non-numeric variables in the control covariates")
+        nonNumCols = which(
+            ~Covariates[ctrlCov].apply(pd.api.types.is_numeric_dtype)
+        )  # Negate boolean values by ~ in pandas
         for i in range(len(nonNumCols)):
-            Covariates[ctrlCov[nonNumCols[i]]] = pd.factorize( Covariates[ctrlCov[nonNumCols[i]]] )[0]
-        
+            Covariates[ctrlCov[nonNumCols[i]]] = pd.factorize(
+                Covariates[ctrlCov[nonNumCols[i]]]
+            )[0]
+
     xNames = colnames(Covariates)
     nCov = len(xNames)
 
@@ -320,30 +323,28 @@ def metaData(
             iNam = results["varNamForBin"][i]
             mini = min(Covariates.loc[:, iNam])
             maxi = max(Covariates.loc[:, iNam])
-            if any( (mini != 0, maxi != 1) ):
-                Covariates.loc[
-                    Covariates.loc[:, iNam] == mini, iNam
-                ] = 0
-                Covariates.loc[
-                    Covariates.loc[:, iNam] == maxi, iNam
-                ] = 1
+            if any((mini != 0, maxi != 1)):
+                Covariates.loc[Covariates.loc[:, iNam] == mini, iNam] = 0
+                Covariates.loc[Covariates.loc[:, iNam] == maxi, iNam] = 1
                 print(
                     "Binary covariate",
                     iNam,
                     "is not coded as 0/1 which may generate analysis bias. It has been changed to 0/1. The changed covariates data can be extracted from the result file.",
                 )
-    else :
+    else:
         results["nBinVars"] = 0
         binaryInd = []
         results["varNamForBin"] = []
 
     results["binaryInd"] = binaryInd
     results["xNames"] = colnames(Covariates)
-    
-    if standardize :
-        temp = Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"]) ]
-        Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"]) ] = temp / temp.std()
-    
+
+    if standardize:
+        temp = Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"])]
+        Covariates.loc[:, Covariates.columns.difference(results["varNamForBin"])] = (
+            temp / temp.std()
+        )
+
     xNewNames = np.array(["x" + str(i + 1) for i in range(len(xNames))])
     Covariates = Covariates.rename(columns=dict(zip(colnames(Covariates), xNewNames)))
     results["covsPrefix"] = "x"
@@ -368,55 +369,61 @@ def metaData(
     del (MdataWithId_new, CovarWithId_new)
 
     Mdata_omit = dataOmit.loc[:, np.array(newMicrobNames1)]
-    
+
     # check taxa with zero or 1 read again after all missing data removed
-    numTaxaNoReads=np.sum(colSums(Mdata_omit!=0)<=taxDropThresh)
-    if numTaxaNoReads==0 :
-       results["data"] = dataOmit
-      
-    if(numTaxaNoReads>0):
-        dataOmit_noTaxa=dataOmit.loc[:, ~ r_in(colnames(dataOmit), newMicrobNames1)]
-        microbToRetain=newMicrobNames1[~(colSums(Mdata_omit!=0)<=taxDropThresh)]
-        print("There are ",numTaxaNoReads," taxa without any sequencing reads after merging and removing all missing data, and excluded from the analysis")
-                
-        MdataToRetain=Mdata_omit[microbToRetain]
-        microbName=microbName1[r_in(newMicrobNames1, microbToRetain)]
-        results['microbName']=microbName
-        newMicrobNames1= ["microb" + str(i+1) for i in range(len(microbName))]
-        newMicrobNames=newMicrobNames1
-        results['newMicrobNames']=newMicrobNames
-        MdataToRetain.columns=microbToRetain
-        results['data']=cbind( (dataOmit_noTaxa,MdataToRetain) )
+    numTaxaNoReads = np.sum(colSums(Mdata_omit != 0) <= taxDropThresh)
+    if numTaxaNoReads == 0:
+        results["data"] = dataOmit
+
+    if numTaxaNoReads > 0:
+        dataOmit_noTaxa = dataOmit.loc[:, ~r_in(colnames(dataOmit), newMicrobNames1)]
+        microbToRetain = newMicrobNames1[~(colSums(Mdata_omit != 0) <= taxDropThresh)]
+        print(
+            "There are ",
+            numTaxaNoReads,
+            " taxa without any sequencing reads after merging and removing all missing data, and excluded from the analysis",
+        )
+
+        MdataToRetain = Mdata_omit[microbToRetain]
+        microbName = microbName1[r_in(newMicrobNames1, microbToRetain)]
+        results["microbName"] = microbName
+        newMicrobNames1 = ["microb" + str(i + 1) for i in range(len(microbName))]
+        newMicrobNames = newMicrobNames1
+        results["newMicrobNames"] = newMicrobNames
+        MdataToRetain.columns = microbToRetain
+        results["data"] = cbind((dataOmit_noTaxa, MdataToRetain))
 
     # output data summary
     print("Data dimensions (after removing missing data if any):")
-    print(results['data'].shape[0]," samples")
-    print(ncol(Mdata)," taxa/OTU/ASV")
-    
-    if not MZILN:
-        print(len(results['testCovInOrder'])," testCov variables in the analysis")
-    if MZILN :
-        print(len(results['testCovInOrder'])," covariates in the analysis")
-        
-    if len(results['testCovInOrder'])>0 :
-        
-        if not MZILN: print("These are the testCov variables:")
-        if MZILN: print("These are the covariates:")
+    print(results["data"].shape[0], " samples")
+    print(ncol(Mdata), " taxa/OTU/ASV")
 
-        print(*results['testCovInOrder'], sep = ", ")
-        
     if not MZILN:
-        print(len(ctrlCov)," ctrlCov variables in the analysis ")        
-        if len(ctrlCov)>0:
+        print(len(results["testCovInOrder"]), " testCov variables in the analysis")
+    if MZILN:
+        print(len(results["testCovInOrder"]), " covariates in the analysis")
+
+    if len(results["testCovInOrder"]) > 0:
+
+        if not MZILN:
+            print("These are the testCov variables:")
+        if MZILN:
+            print("These are the covariates:")
+
+        print(*results["testCovInOrder"], sep=", ")
+
+    if not MZILN:
+        print(len(ctrlCov), " ctrlCov variables in the analysis ")
+        if len(ctrlCov) > 0:
             print("These are the ctrlCov variables:")
-            print(*ctrlCov, sep = ", ")
-    
-    print(results['nBinVars'], " binary covariates in the analysis")
-    
-    if results['nBinVars']>0:
+            print(*ctrlCov, sep=", ")
+
+    print(results["nBinVars"], " binary covariates in the analysis")
+
+    if results["nBinVars"] > 0:
         print("These are the binary covariates:")
-        print(results['varNamForBin'])
-    
+        print(results["varNamForBin"])
+
     return results
 
 
@@ -518,15 +525,19 @@ def dataInfo(
                 raise Exception("one of the binary variable is not diverse enough")
 
             ## to add binary loop
-            
+
             for i in range(len(nTaxa)):
                 for j in range(len(nBinPred)):
-                    twoColumns_ij=qualifyData.loc[:,[ taxaNames[i], allBinPred[j] ] ]
-                    nNonZero=sum(twoColumns_ij.iloc[:,0]>0)
-                    sumOfBin=sum(twoColumns_ij.loc[(twoColumns_ij.iloc[:,0]>0),:].iloc[:, 1])
-                    if np.min(sumOfBin,(nNonZero-sumOfBin))>=np.floor(balanceCut*nSubQualif) :
-                            taxaBalanceBin=np.hstack(taxaBalanceBin,taxaNames[i])
-                  
+                    twoColumns_ij = qualifyData.loc[:, [taxaNames[i], allBinPred[j]]]
+                    nNonZero = sum(twoColumns_ij.iloc[:, 0] > 0)
+                    sumOfBin = sum(
+                        twoColumns_ij.loc[(twoColumns_ij.iloc[:, 0] > 0), :].iloc[:, 1]
+                    )
+                    if np.min(sumOfBin, (nNonZero - sumOfBin)) >= np.floor(
+                        balanceCut * nSubQualif
+                    ):
+                        taxaBalanceBin = np.hstack(taxaBalanceBin, taxaNames[i])
+
             taxaBalanceBin = np.unique(taxaBalanceBin)
             # keep balanced taxa
             goodRefTaxaCandi = goodRefTaxaCandi[r_in(goodRefTaxaCandi, taxaBalanceBin)]
@@ -582,12 +593,12 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
                 b = -1 / (1 + (dim - 1) / 2)
 
                 # calculate the square root of omega assuming it is exchangeable
-                aStar = dim**2 / ((dim - 1) ** 2)
-                bStar = b * (dim - 2) / (dim - 1) - a * (dim**2 - 2 * dim + 2) / (
+                aStar = dim ** 2 / ((dim - 1) ** 2)
+                bStar = b * (dim - 2) / (dim - 1) - a * (dim ** 2 - 2 * dim + 2) / (
                     (dim - 1) ** 2
                 )
                 cStar = (0.5 * b - 0.5 * a * (dim - 2) / (dim - 1)) ** 2
-                cSquare = (-bStar + np.sqrt(bStar**2 - 4 * aStar * cStar)) / (
+                cSquare = (-bStar + np.sqrt(bStar ** 2 - 4 * aStar * cStar)) / (
                     2 * aStar
                 )
 
@@ -600,7 +611,7 @@ def dataRecovTrans(data, ref, Mprefix, covsPrefix, xOnly=False, yOnly=False):
                     raise Exception(
                         "no solution for off-diagnal elements for square root of omega"
                     )
-                c = (0.5 * b - (dim - 2) * (d**2)) / (2 * d)
+                c = (0.5 * b - (dim - 2) * (d ** 2)) / (2 * d)
                 omegaRoot[i] = -(
                     (c - d) * np.eye(int(dim)) + d * np.ones((int(dim), int(dim)))
                 )
@@ -798,7 +809,7 @@ def runScrParal(
     binPredInd,
     adjust_method,
     seed,
-    maxDimensionScr=0.8 * 434 * 10 * 10**4,
+    maxDimensionScr=0.8 * 434 * 10 * 10 ** 4,
 ):
 
     results = {}
@@ -956,7 +967,7 @@ def Regulariz(
     SDquantilThresh,
     balanceCut,
     adjust_method,
-    seed
+    seed,
 ):
 
     results = {}
@@ -1006,11 +1017,12 @@ def Regulariz(
     loop_num = 0
     print("33 percent of phase 1 analysis has been done")
     while while_loop_ind is False:
-        if loop_num >= 2: break
+        if loop_num >= 2:
+            break
         loop_num = loop_num + 1
-        refTaxa_smaller = np.hstack(
-            ((selectRegroup["goodIndpRefTaxWithCount"].index)[:nRef_smaller],)
-        )
+        refTaxa_smaller = (selectRegroup["goodIndpRefTaxWithCount"].index)[
+            :nRef_smaller
+        ]
 
         fin_ref_1 = selectRegroup["finalIndpRefTax"]
         ref_taxa_1 = selectRegroup["refTaxa"]
@@ -1095,36 +1107,43 @@ def Regulariz(
     qualifyData = data
 
     if len(binaryInd_test) > 0:
-        qualifyData=data.loc[rowSums(data.loc[:,taxaNames]>0)>=2, :]
-        allBinPred= [covsPrefix + str(i+1) for i in binaryInd_test]
-        nBinPred=len(allBinPred)
-        
-        # find the pairs of binary preds and taxa for which the assocaiton is not identifiable
-        AllTaxaNamesNoRefTax=taxaNames[~ r_in(microbName, results['finalizedBootRefTaxon'] ) ]
-        unbalanceTaxa=np.empty(0)
-        unbalancePred=np.empty(0)
-        
-        for i in AllTaxaNamesNoRefTax:
-            for j in allBinPred :
-                twoColumns_ij=qualifyData.loc[:,[i,j] ]
-                nNonZero=sum(twoColumns_ij.iloc[:,0]>0)
-                sumOfBin=sum(twoColumns_ij.loc[(twoColumns_ij.iloc[:,0]>0),:].iloc[:, 1])
-                if r_in([sumOfBin], [0,1,(nNonZero-1),nNonZero] ) :
-                        unbalanceTaxa=np.hstack( (unbalanceTaxa,i) )
-                        unbalancePred=np.hstack( (unbalancePred,j) )
-                        
-        if len(unbalanceTaxa)>0:
-            unbalanceTaxa_ori_name=microbName.take( [np.where(r_in(taxaNames, xx)) for xx in unbalanceTaxa]).flatten()
-            unbalancePred_ori_name=testCovInOrder.take( [np.where(r_in(testCovInNewNam, xx)) for xx in unbalancePred] ).flatten()
-        else:
-            unbalanceTaxa_ori_name=np.empty(0)
-            unbalancePred_ori_name=np.empty(0)
-    else:
-        unbalanceTaxa_ori_name=np.empty(0)
-        unbalancePred_ori_name=np.empty(0)
-        
-    # check zero taxa and subjects with zero taxa reads
+        qualifyData = data.loc[rowSums(data.loc[:, taxaNames] > 0) >= 2, :]
+        allBinPred = [covsPrefix + str(i + 1) for i in binaryInd_test]
+        nBinPred = len(allBinPred)
 
+        # find the pairs of binary preds and taxa for which the assocaiton is not identifiable
+        AllTaxaNamesNoRefTax = taxaNames[
+            ~r_in(microbName, results["finalizedBootRefTaxon"])
+        ]
+        unbalanceTaxa = np.empty(0)
+        unbalancePred = np.empty(0)
+
+        for i in AllTaxaNamesNoRefTax:
+            for j in allBinPred:
+                twoColumns_ij = qualifyData.loc[:, [i, j]]
+                nNonZero = sum(twoColumns_ij.iloc[:, 0] > 0)
+                sumOfBin = sum(
+                    twoColumns_ij.loc[(twoColumns_ij.iloc[:, 0] > 0), :].iloc[:, 1]
+                )
+                if r_in([sumOfBin], [0, 1, (nNonZero - 1), nNonZero]):
+                    unbalanceTaxa = np.hstack((unbalanceTaxa, i))
+                    unbalancePred = np.hstack((unbalancePred, j))
+
+        if len(unbalanceTaxa) > 0:
+            unbalanceTaxa_ori_name = microbName.take(
+                [np.where(r_in(taxaNames, xx)) for xx in unbalanceTaxa]
+            ).flatten()
+            unbalancePred_ori_name = testCovInOrder.take(
+                [np.where(r_in(testCovInNewNam, xx)) for xx in unbalancePred]
+            ).flatten()
+        else:
+            unbalanceTaxa_ori_name = np.empty(0)
+            unbalancePred_ori_name = np.empty(0)
+    else:
+        unbalanceTaxa_ori_name = np.empty(0)
+        unbalancePred_ori_name = np.empty(0)
+
+    # check zero taxa and subjects with zero taxa reads
 
     ## numpy unique will sort it !! avoid it by pandas
     allRefTaxNam = pd.unique(
@@ -1140,7 +1159,7 @@ def Regulariz(
     # allRefTaxNam = np.array(["rawCount12", "rawCount31"])
 
     for iii in range(results["nRefUsedForEsti"]):
-        print("Start estimation for the ", iii+1, "th final reference taxon")
+        print("Start estimation for the ", iii + 1, "th final reference taxon")
         time11 = timeit.default_timer()
         originTaxNam = allRefTaxNam[iii]
         newRefTaxNam = taxaNames[r_in(microbName, originTaxNam)]
@@ -1160,12 +1179,12 @@ def Regulariz(
             fwerRate=fwerRate,
             paraJobs=paraJobs,
             sequentialRun=sequentialRun,
-            seed=seed
+            seed=seed,
         )
         time12 = timeit.default_timer()
         print(
             "Estimation done for the ",
-            iii,
+            iii + 1,
             "th final reference taxon and it took ",
             round((time12 - time11) / 60, 3),
             " minutes",
@@ -1296,21 +1315,11 @@ def Regulariz(
         j_name = testCovInOrder[j]
         est_res_save_all = pd.concat(
             (
-                est_save_mat_mean.loc[
-                    j_name,
-                ],
-                se_mat_mean.loc[
-                    j_name,
-                ],
-                CI_low_mat_mean.loc[
-                    j_name,
-                ],
-                CI_up_mat_mean.loc[
-                    j_name,
-                ],
-                p_value_adj_mean.loc[
-                    j_name,
-                ],
+                est_save_mat_mean.loc[j_name,],
+                se_mat_mean.loc[j_name,],
+                CI_low_mat_mean.loc[j_name,],
+                CI_up_mat_mean.loc[j_name,],
+                p_value_adj_mean.loc[j_name,],
             ),
             axis=1,
         )
@@ -1351,7 +1360,7 @@ def bootResuHDCI(
     paraJobs,
     sequentialRun,
     seed,
-    maxDimension=434 * 5 * 10**5,
+    maxDimension=434 * 5 * 10 ** 5,
     bootLassoAlpha=0.05,
 ):
 
@@ -1395,7 +1404,7 @@ def bootResuHDCI(
 
     nRuns = math.ceil(subSamplK / 3)
 
-    if False:  # x.shape[0] > x.shape[1] :
+    if x.shape[0] > x.shape[1]:  # False:  #  ## ChangePoint
         for k in range(nRuns):
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
             xSub = x[rowToKeep, :]
@@ -1447,18 +1456,10 @@ def bootResuHDCI(
             p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
 
             p_value_save_mat[ii, :] = p_value_adj
-            est_save_mat[
-                ii,
-            ] = boot_est_par
-            CI_low_mat[
-                ii,
-            ] = boot_est_CI_low
-            CI_up_mat[
-                ii,
-            ] = boot_est_CI_up
-            se_mat[
-                ii,
-            ] = se_est
+            est_save_mat[ii,] = boot_est_par
+            CI_low_mat[ii,] = boot_est_CI_low
+            CI_up_mat[ii,] = boot_est_CI_up
+            se_mat[ii,] = se_est
 
     else:
         for k in range(nRuns):
@@ -1482,7 +1483,7 @@ def bootResuHDCI(
             else:
                 boot_est_k = boot_est_k + bootResu["Beta_LPR"]
                 boot_CI_k = boot_CI_k + bootResu["interval_LPR"]
-                
+
         results["reg_res"] = bootResu
         fin_ref_taxon_name = originRefTaxNam
         all_cov_list = {}
@@ -1521,18 +1522,10 @@ def bootResuHDCI(
             p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
 
             p_value_save_mat[ii, :] = p_value_adj
-            est_save_mat[
-                ii,
-            ] = boot_est_par
-            CI_low_mat[
-                ii,
-            ] = boot_est_CI_low
-            CI_up_mat[
-                ii,
-            ] = boot_est_CI_up
-            se_mat[
-                ii,
-            ] = se_est
+            est_save_mat[ii,] = boot_est_par
+            CI_low_mat[ii,] = boot_est_CI_low
+            CI_up_mat[ii,] = boot_est_CI_up
+            se_mat[ii,] = se_est
 
     colname_use = microbName[microbName != ref_taxon_name]
 
@@ -1545,12 +1538,12 @@ def bootResuHDCI(
     se_mat = pd.DataFrame(se_mat, index=testCovInOrder, columns=colname_use)
 
     if len(unbalanceTaxa_ori_name) > 0:
-        est_save_mat[cbind(unbalancePred_ori_name,unbalanceTaxa_ori_name)] = -1000
-        CI_low_mat[cbind(unbalancePred_ori_name,unbalanceTaxa_ori_name)] = -1000
-        CI_up_mat[cbind(unbalancePred_ori_name,unbalanceTaxa_ori_name)] = -1000
-        se_mat[cbind(unbalancePred_ori_name,unbalanceTaxa_ori_name)] = -1000
-        p_value_save_mat[cbind(unbalancePred_ori_name,unbalanceTaxa_ori_name)] = -1000
-    
+        est_save_mat[cbind(unbalancePred_ori_name, unbalanceTaxa_ori_name)] = -1000
+        CI_low_mat[cbind(unbalancePred_ori_name, unbalanceTaxa_ori_name)] = -1000
+        CI_up_mat[cbind(unbalancePred_ori_name, unbalanceTaxa_ori_name)] = -1000
+        se_mat[cbind(unbalancePred_ori_name, unbalanceTaxa_ori_name)] = -1000
+        p_value_save_mat[cbind(unbalancePred_ori_name, unbalanceTaxa_ori_name)] = -1000
+
     sig_ind = np.where((p_value_save_mat < fwerRate).to_numpy())
     sig_row = sig_ind[0]
     sig_col = sig_ind[1]
@@ -1656,7 +1649,6 @@ def getScrResu(
         adjust_method=adjust_method,
         seed=seed,
     )
-
     selecCountOverall = scrParal["countOfSelecForAPred"]
     selecEstOverall = scrParal["estOfSelectForAPred"]
 
@@ -1670,7 +1662,7 @@ def getScrResu(
     nPredics = scrParal["nPredics"]
     nTestCov = scrParal["nTestCov"]
     results["refTaxa"] = scrParal["refTaxa"]
-    rm(scrParal)
+    # rm(scrParal)
 
     if nTestCov == 1:
         results["selecCountMatIndv"] = selecCountOverall
@@ -1725,7 +1717,7 @@ def originDataScreen(
     binPredInd,
     adjust_method,
     seed,
-    maxDimensionScr=434 * 5 * 10**5,
+    maxDimensionScr=434 * 5 * 10 ** 5,
 ):
 
     results = {}
@@ -1761,7 +1753,7 @@ def originDataScreen(
         nAlphaSelec,
         nAlphaNoInt,
         nTaxa,
-        seed
+        seed,
     )
 
     startT1 = timeit.default_timer()
@@ -1785,9 +1777,7 @@ def originDataScreen(
 
     if sequentialRun:
         print(
-            " Sequential running analysis for ",
-            nRef,
-            " reference taxa in Phase 1",
+            " Sequential running analysis for ", nRef, " reference taxa in Phase 1",
         )
 
         scr1Resu = [
@@ -1841,11 +1831,11 @@ def forEachUnitRun(
     nAlphaNoInt,
     nTaxa,
     seed,
-    i
+    i,
 ):
     np.random.seed(seed + i)
     scipy.random.seed(seed + i)
-    
+
     ii = which(taxaNames == refTaxa[i])
     dataForEst = dataRecovTrans(
         data=data, ref=refTaxa[i], Mprefix=Mprefix, covsPrefix=covsPrefix
@@ -1932,7 +1922,7 @@ def forEachUnitRun(
 
 
 def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
-    
+
     results = {}
     lm_res = OLS(y, x).fit()
     p_value_est = lm_res.pvalues
@@ -1980,13 +1970,18 @@ def runGlmnet(
         x = np.delete(x, xWithNearZeroSd, axis=1)
     rm(sdX)
 
-    cvResul = cvglmnet(x=x, y=y,
-        alpha=1, nlambda=nLam, standardize = standardize, intr = intercept,
-        family=family, nfolds=nfolds
+    cvResul = cvglmnet(
+        x=x,
+        y=y,
+        alpha=1,
+        nlambda=nLam,
+        standardize=standardize,
+        intr=intercept,
+        family=family,
+        nfolds=nfolds,
     )
 
-    finalLassoRunBeta = cvglmnetCoef(cvResul, s = 'lambda_min')[1:]
-
+    finalLassoRunBeta = cvglmnetCoef(cvResul, s="lambda_min")[1:]
 
     # convert back to the full beta if there near constant x columns
     if len(xWithNearZeroSd) > 0:
@@ -2088,7 +2083,7 @@ def runBootLassoHDCI(
     bootResu = bootLassoCI(
         x,
         y,
-        seed = seed,
+        seed=seed,
         sequentialRun=sequentialRun,
         paraJobs=paraJobs,
         bootLassoAlpha=bootLassoAlpha,
@@ -2114,9 +2109,7 @@ def runBootLassoHDCI(
             nTaxa=nBeta,
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
-            newBetaNoInt=betaCI_LPR[
-                :, 0
-            ],
+            newBetaNoInt=betaCI_LPR[:, 0],
         )
         betaCIlow_LPR = betaTransCIlow_L["finalBeta"]
 
@@ -2124,19 +2117,12 @@ def runBootLassoHDCI(
             nTaxa=nBeta,
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
-            newBetaNoInt=betaCI_LPR[
-                :, 1
-            ],
+            newBetaNoInt=betaCI_LPR[:, 1],
         )
         betaCIhi_LPR = betaTransCIhi_L["finalBeta"]
     else:
-        betaCIlow_LPR = betaCI_LPR[
-            :, 0
-        ]
-        betaCIhi_LPR = betaCI_LPR[
-            :, 1
-        ]
-    
+        betaCIlow_LPR = betaCI_LPR[:, 0]
+        betaCIhi_LPR = betaCI_LPR[:, 1]
 
     results["Beta_LPR"] = beta_LPR
     results["interval_LPR"] = np.vstack((betaCIlow_LPR, betaCIhi_LPR))
@@ -2155,25 +2141,38 @@ def bootLassoCI(
     nfolds=10,
     nLam=100,
     intercept=True,
-    bootB=50
+    bootB=50,
 ):
     results = {}
-    alpha = 1 ## lasso
-    
+    alpha = 1  ## lasso ##ChangePoint
+
     np.random.seed(seed)
     scipy.random.seed(seed)
-    
-    cvResul = cvglmnet(x=x, y=y,
-        alpha=alpha, nlambda=nLam, standardize = standardize, intr = intercept,
-        nfolds=nfolds
+
+    cvResul = cvglmnet(
+        x=x,
+        y=y,
+        alpha=alpha,
+        nlambda=nLam,
+        standardize=standardize,
+        intr=intercept,
+        nfolds=nfolds,
     )
 
-    results["Beta_LPR"] = cvglmnetCoef(cvResul, s = 'lambda_min')[1:]
+    results["Beta_LPR"] = cvglmnetCoef(cvResul, s="lambda_min")[1:]
 
     ## Remove three identical est CIU CIL
     ## Remove est = 0
-    bootLassoCIUnit_partial = partial(bootLassoCIUnit, x, y, alpha,
-                                      cvResul['lambda_min'], standardize, intercept, seed)
+    bootLassoCIUnit_partial = partial(
+        bootLassoCIUnit,
+        x,
+        y,
+        alpha,
+        cvResul["lambda_min"],
+        standardize,
+        intercept,
+        seed,
+    )
 
     if not sequentialRun:
         with tqdm_joblib(tqdm(desc="Phase2-Par", total=bootB)) as progress_bar:
@@ -2203,28 +2202,20 @@ def bootLassoCI(
     return results
 
 
-def bootLassoCIUnit(
-    x,
-    y,
-    alpha,
-    optimalLam,
-    standardize,
-    intercept,
-    seed,
-    i
-):
-    
+def bootLassoCIUnit(x, y, alpha, optimalLam, standardize, intercept, seed, i):
+
     np.random.seed(seed + i)
     scipy.random.seed(seed + i)
-    
+
     rowToKeep = np.random.choice(len(y), len(y), replace=True)
     xBoot = x[rowToKeep, :]
     yBoot = y[rowToKeep]
-    
-    bootFit = glmnet(x = xBoot, y = yBoot, alpha = alpha,
-                     standardize = standardize, intr = intercept)    
 
-    return glmnetCoef(bootFit, s = scipy.float64([optimalLam]))[:, 0][1:]
+    bootFit = glmnet(
+        x=xBoot, y=yBoot, alpha=alpha, standardize=standardize, intr=intercept
+    )
+
+    return glmnetCoef(bootFit, s=scipy.float64([optimalLam]))[:, 0][1:]
 
 
 # =============================================================================
@@ -2274,11 +2265,6 @@ def r_ni(x, y):
 
 def rm(*args):
     del args
-
-
-def slice_bool(x, y):
-    """Slicing list by a boolean list"""
-    return list(compress(x, y))
 
 
 def inv_bool(x):

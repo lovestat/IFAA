@@ -15,7 +15,7 @@ res = IFAA(load_dataM().iloc[:,:],
            paraJobs = 4,
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
-           bootB = 30,
+           bootB = 100,
            sequentialRun=False)
 
 res['sig_results']

@@ -1,36 +1,43 @@
-Python
+Python 
 
-- if False: (Use Lasso to do the final inference)
+- Use Lasso to do the final inference CI
 
 {'v1':             estimate    SE est    CI low     CI up   adj p-value
  rawCount18  0.021005  0.003867  0.015715  0.030872  5.003292e-06
  rawCount36  0.027036  0.003060  0.020160  0.032155  0.000000e+00
  rawCount41  0.026683  0.003980  0.020072  0.035672  2.716100e-09}
 
-- if x.shape[0] > x.shape[1]: ((Use lm to do the final inference))
+ -Use ElasticNet to do the final inference CI
+ 
+{'v1':             estimate    SE est    CI low     CI up   adj p-value
+ rawCount18  0.020164  0.003546  0.014675  0.028576  1.168490e-06
+ rawCount36  0.026197  0.003020  0.018994  0.030831  0.000000e+00
+ rawCount41  0.027286  0.003700  0.021752  0.036254  2.207992e-11}
+
+- Use lm to do the final inference CI
 
 {'v1':             estimate    SE est    CI low     CI up  adj p-value
  rawCount18  0.022237  0.005107  0.012226  0.032247     0.001201
  rawCount36  0.028435  0.005403  0.017845  0.039025     0.000029
  rawCount41  0.025984  0.005012  0.016160  0.035808     0.000029}
  
-R
+R-1.0.6
 
-- if False: (Use Lasso to do the final inference)
+- Use HDCI to do the final inference CI
+$v1
+             estimate      SE est     CI low      CI up  adj p-value
+rawCount18 0.02223196 0.004922494 0.01149721 0.03079303 5.650064e-04
+rawCount36 0.02844261 0.004756176 0.01824073 0.03688460 6.007874e-07
+rawCount41 0.02598555 0.004689058 0.01566846 0.03404923 4.035224e-06
+
+
+- Use lm to do the final inference
 
 $v1
              estimate      SE est     CI low      CI up  adj p-value
-rawCount18 0.02683782 0.004613848 0.01746185 0.03554780 8.082599e-07
-rawCount36 0.02504340 0.005848983 0.01147437 0.03440196 1.666284e-03
-rawCount41 0.02937192 0.004440367 0.02012695 0.03753287 1.002949e-08
-
-- if x.shape[0] > x.shape[1] : ((Use lm to do the final inference))
-
-$v1
-             estimate      SE est     CI low      CI up  adj p-value
-rawCount18 0.02674018 0.005269048 0.01641285 0.03706752 5.222398e-05
-rawCount36 0.02506622 0.005572809 0.01414351 0.03598892 6.163227e-04
-rawCount41 0.02937611 0.005156138 0.01927008 0.03948214 3.279975e-06
+rawCount18 0.02223674 0.005107266 0.01222649 0.03224698 1.201099e-03
+rawCount36 0.02843518 0.005403042 0.01784522 0.03902514 2.926016e-05
+rawCount41 0.02598367 0.005012267 0.01615963 0.03580772 2.926016e-05
 
 
 Python
@@ -76,11 +83,27 @@ Python
  rawCount58 -0.018916  0.003158 -0.024667 -0.012288  1.132493e-07
  rawCount59 -0.014190  0.002589 -0.018408 -0.008261  1.418989e-06}
  
- - Use EN
  
-{'v1':             estimate    SE est    CI low     CI up   adj p-value
- rawCount18  0.020164  0.003546  0.014675  0.028576  1.168490e-06
- rawCount36  0.026197  0.003020  0.018994  0.030831  0.000000e+00
- rawCount41  0.027286  0.003700  0.021752  0.036254  2.207992e-11}
+Setting:
+
+results <- IFAA(MicrobData = dataM[, ],
+                CovData = dataC[, ],
+                linkIDname = "id",
+                testCov = c("v1"),
+                ctrlCov = c("v2", "v3"),
+                paraJobs = 4,
+                refTaxa = glue::glue("rawCount{1:40}"),
+                seed = 1,
+                bootB = 100,
+                sequentialRun=F)
+
+
+
+results$sig_results
+results$full_results
+results$analysisResults$finalizedBootRefTaxon
+results$analysisResults$allRefTaxNam
+results$covriateNames
+
  
  
