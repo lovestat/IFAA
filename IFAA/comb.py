@@ -30,16 +30,16 @@ def IFAA(
     MicrobData,
     CovData,
     linkIDname,
-    testCov=np.empty(0),
-    ctrlCov=np.empty(0),
+    testCov=[],
+    ctrlCov=[],
     testMany=True,
     ctrlMany=False,
     nRef=40,
     nRefMaxForEsti=2,
-    refTaxa=np.empty(0),
+    refTaxa=[],
     adjust_method="fdr_by",
     fdrRate=0.15,
-    paraJobs=np.empty(0),
+    paraJobs=[],
     bootB=500,
     standardize=False,
     sequentialRun=False,
@@ -50,6 +50,134 @@ def IFAA(
     balanceCut=0.2,
     seed=1,
 ):
+    """
+    Robust association identification and inference for absolute abundance in microbiome analyses
+    
+    Make inference on the association of microbiome with covariates. Most of the time, users just need to feed the first five inputs to the function: MicrobData, CovData, linkIDname, testCov and ctrlCov. All other inputs can just take their default values.
+        
+    ARGUMENTS:
+    ---------------
+    MicrobData : pandas DataFrame
+        Microbiome data matrix containing microbiome absolute abundance or relative abundance with each row per sample and each column per taxon/OTU/ASV (or any other unit). It should contain an id variable to be linked with the id variable in the covariates data: CovData.
+    CovData : pandas DataFrame
+        Covariates data matrix containing covariates and confounders with each row per sample and each column per variable. Any categorical variable should be converted into dummy variables in this data matrix unless it can be treated as a continuous variable. It should also contain an id variable to be linked with the id variable in the microbiome data: MicrobData. 
+    linkIDname : str
+        The common variable name of the id variable in both MicrobData and CovData. The two data sets will be merged by this id variable.
+    testCov : list of str
+        Covariates that are of primary interest for testing and estimating the associations. It corresponds to :math:`X_i` in the equation. Default is NULL which means all covariates are testCov.
+    ctrlCov : list of str
+        Potential confounders that will be adjusted in the model. It corresponds to :math:`W_i` in the equation. Default is NULL which means all covariates except those in testCov are adjusted as confounders.
+    testMany : boolean
+        This takes logical value True or False. If True, the testCov will contain all the variables in CovData provided testCov is set to be NULL. The default value is True which does not do anything if testCov is not NULL.
+    ctrlMany : boolean
+        This takes logical value True or False. If True, all variables except testCov are considered as control covariates provided ctrlCov is set to be NULL. The default value is False.
+    nRef : int
+           The number of randomly picked reference taxa used in phase 1. Default number is 40.
+    nRefMaxForEsti : int
+        The maximum number of final reference taxa used in phase 2. The default is 2.
+    refTaxa : list of str
+        A vector of taxa or OTU or ASV names. These are reference taxa specified by the user to be used in phase 1. If the number of reference taxa is less than 'nRef', the algorithm will randomly pick extra reference taxa to make up 'nRef'. The default is NULL since the algorithm will pick reference taxa randomly.
+    adjust_method : str
+        The adjusting method for p value adjustment. Default is "BY" for dependent FDR adjustment. It can take any adjustment method for p.adjust function in R.
+    fdrRate : float
+        The false discovery rate for identifying taxa/OTU/ASV associated with testCov. Default is 0.15.
+    paraJobs : int  
+        If sequentialRun is False, this specifies the number of parallel jobs that will be registered to run the algorithm. If specified as NULL, it will automatically detect the cores to decide the number of parallel jobs. Default is NULL.
+    bootB : int
+        Number of bootstrap samples for obtaining confidence interval of estimates in phase 2 for the high dimensional regression. The default is 500.
+    standardize : boolean 
+        This takes a logical value True or False. If True, the design matrix for :math:`X` will be standardized in the analyses and the results. Default is False.
+    sequentialRun : boolean
+        This takes a logical value True or False. Default is False. This argument could be useful for debug.
+    refReadsThresh : float
+        The threshold of proportion of non-zero sequencing reads for choosing the reference taxon in phase 2. The default is 0.2 which means at least 20% non-zero sequencing reads.
+    taxDropThresh : float
+        The threshold of number of non-zero sequencing reads for each taxon to be dropped from the analysis. The default is 0 which means taxon without any sequencing reads will be dropped from the analysis.
+    SDThresh : float    
+        The threshold of standard deviations of sequencing reads for been chosen as the reference taxon in phase 2. The default is 0.05 which means the standard deviation of sequencing reads should be at least 0.05 in order to be chosen as reference taxon.
+    SDquantilThresh : float
+        The threshold of the quantile of standard deviation of sequencing reads, above which could be selected as reference taxon. The default is 0.
+    balanceCut : float 
+        The threshold of the proportion of non-zero sequencing reads in each group of a binary variable for choosing the final reference taxa in phase 2. The default number is 0.2 which means at least 20% non-zero sequencing reads in each group are needed to be eligible for being chosen as a final reference taxon.
+    seed : int
+           Random seed for reproducibility. Default is 1. It can be set to be NULL to remove seeding.
+    
+    OUTPUT : 
+    ----------------
+    sig_results :    dict 
+        containing estimating results that are statistically significant.
+    full_results :   dict 
+        containing all estimating results. NA denotes unestimable.
+    covariatesData : pandas DataFrame
+        containing covariates and confounders used in the analyses.
+
+    EXAMPLES:
+    --------
+    >>> import numpy as np
+    >>> from loadData import *
+
+    >>> res = IFAA(load_dataM().iloc[:,:], 
+    ...            load_dataC().iloc[:,:], 
+    ...            testCov = ['v1'],
+    ...            ctrlCov = ['v2', 'v3'],
+    ...            paraJobs = 4,
+    ...            linkIDname="id",
+    ...            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
+    ...            bootB = 100,
+    ...            sequentialRun=False)
+
+    >>> res['sig_results']
+    >>> res['full_results']
+    >>> res['analysisResults']['finalizedBootRefTaxon']
+    >>> res['covriateNames']
+    
+    DETAILS:
+    -------
+        To model the association, the following equation is used:
+            
+                        .. math:: \log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k>0 =\beta^{0k}+X_i^T\beta^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k; \hspace{0.5cm}k=1,...,K+1 
+            where
+                :math:`Y_i^k` is the AA of taxa k in subject i in the entire ecosystem.
+                
+                :math:`X_i` is the covariate matrix.
+                
+                :math:`W_i` is the confounder matrix.
+                
+                :math:`Z_i` is the design matrix for random effects.
+                
+                :math:`beta^k` is the regression coefficients that will be estimated and tested with the IFAA() function.
+
+        The challenge in microbiome analysis is that :math:`Y_i^k` can not be observed. What is observed is its small proportion:
+            
+                        .. math:: Y_i^k=C_iY^k_i, 
+                                    
+            where 
+                :math:`C_i` is an unknown number between 0 and 1 that denote the observed proportion.
+
+        The IFAA method can successfully addressed this challenge. The IFAA() will estimate the parameter :math:`beta^k` and their 95% confidence intervals. High-dimensional :math:`X_i` is handled by regularization.
+        
+    AUTHORS:
+    -------
+        Zhigang Li, Quran Wu, Shangchen Song
+    
+    REFERENCES:
+    ---------- 
+        Li et al.(2021) IFAA: Robust association identification and Inference For Absolute Abundance in microbiome analyses. 
+        Journal of the American Statistical Association
+        
+        Zhang CH (2010) Nearly unbiased variable selection under minimax concave penalty. 
+        Annals of Statistics. 38(2):894-942.
+        
+        Liu et al.(2020) A bootstrap lasso + partial ridge method to construct confidence intervals for parameters in high-dimensional sparse linear models. 
+        Statistica Sinica
+
+    SEE ALSO:
+    --------
+        IFAA's R version on CRAN 
+        
+        https://cran.r-project.org/package=IFAA
+        
+    """
     # Make arguments as numpy arries
     testCov = np.array(testCov)
     ctrlCov = np.array(ctrlCov)
