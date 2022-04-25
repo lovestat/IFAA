@@ -59,7 +59,7 @@ bootResuHDCI=function(
   nRuns=(ceiling(subSamplK/3))
 
 
-  if (FALSE) { # (dim(x)[1]>(dim(x)[2])) {
+  if (dim(x)[1]>(dim(x)[2])) { # (FALSE) { # 
     for(k in 1:nRuns){
       rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
       xSub=as((x[rowToKeep,]),"sparseMatrix")

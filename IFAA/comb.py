@@ -78,7 +78,7 @@ def IFAA(
     refTaxa : list of str
         A vector of taxa or OTU or ASV names. These are reference taxa specified by the user to be used in phase 1. If the number of reference taxa is less than 'nRef', the algorithm will randomly pick extra reference taxa to make up 'nRef'. The default is NULL since the algorithm will pick reference taxa randomly.
     adjust_method : str
-        The adjusting method for p value adjustment. Default is "BY" for dependent FDR adjustment. It can take any adjustment method for p.adjust function in R.
+        The adjusting method for p value adjustment. Default is "fdr_by" for dependent FDR adjustment. It can take other adjustment method available in statsmodels.
     fdrRate : float
         The false discovery rate for identifying taxa/OTU/ASV associated with testCov. Default is 0.15.
     paraJobs : int  
@@ -104,12 +104,14 @@ def IFAA(
     
     OUTPUT : 
     ----------------
+    
     sig_results :    dict 
         containing estimating results that are statistically significant.
     full_results :   dict 
         containing all estimating results. NA denotes unestimable.
     covariatesData : pandas DataFrame
         containing covariates and confounders used in the analyses.
+    Please use *.keys() to see other output components
 
     EXAMPLES:
     --------
@@ -135,7 +137,7 @@ def IFAA(
     -------
         To model the association, the following equation is used:
             
-                        .. math:: \log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k>0 =\beta^{0k}+X_i^T\beta^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k; \hspace{0.5cm}k=1,...,K+1 
+                        .. math:: \log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k>0 =\\beta ^{0k}+X_i^T \\beta ^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k; \hspace{0.5cm}k=1,...,K+1 
             where
                 :math:`Y_i^k` is the AA of taxa k in subject i in the entire ecosystem.
                 
@@ -145,7 +147,7 @@ def IFAA(
                 
                 :math:`Z_i` is the design matrix for random effects.
                 
-                :math:`beta^k` is the regression coefficients that will be estimated and tested with the IFAA() function.
+                :math:`\\beta^k` is the regression coefficients that will be estimated and tested with the IFAA() function.
 
         The challenge in microbiome analysis is that :math:`Y_i^k` can not be observed. What is observed is its small proportion:
             
@@ -154,11 +156,11 @@ def IFAA(
             where 
                 :math:`C_i` is an unknown number between 0 and 1 that denote the observed proportion.
 
-        The IFAA method can successfully addressed this challenge. The IFAA() will estimate the parameter :math:`beta^k` and their 95% confidence intervals. High-dimensional :math:`X_i` is handled by regularization.
+        The IFAA method can successfully addressed this challenge. The IFAA() will estimate the parameter :math:`\\beta^k` and their 95% confidence intervals. High-dimensional :math:`X_i` is handled by regularization.
         
     AUTHORS:
     -------
-        Zhigang Li, Quran Wu, Shangchen Song
+        Zhigang Li, Quran Wu, Shangchen Song 
     
     REFERENCES:
     ---------- 
@@ -638,6 +640,7 @@ def dataInfo(
     nPredics = len(predNames)
 
     ## to add if qualifyreftax
+    # breakpoint()
     if qualifyRefTax:
         # find the pairs of binary preds and taxa for which the assocaiton is not identifiable
         if len(binPredInd) > 0:
@@ -645,26 +648,26 @@ def dataInfo(
             nBinPred = len(allBinPred)
 
             taxaBalanceBin = np.array([])
-            bin_nonz_sum = colSums(qualifyData.loc[:, allBinPred])
+            bin_nonz_sum = np.array(colSums(qualifyData.loc[:, allBinPred]))
 
-            if min(bin_nonz_sum, nSubQualif - bin_nonz_sum) <= np.floor(
+            if np.min( (bin_nonz_sum, nSubQualif - bin_nonz_sum) ) <= np.floor(
                 balanceCut * nSubQualif
             ):
                 raise Exception("one of the binary variable is not diverse enough")
 
             ## to add binary loop
 
-            for i in range(len(nTaxa)):
-                for j in range(len(nBinPred)):
+            for i in range(nTaxa):
+                for j in range(nBinPred):
                     twoColumns_ij = qualifyData.loc[:, [taxaNames[i], allBinPred[j]]]
                     nNonZero = sum(twoColumns_ij.iloc[:, 0] > 0)
                     sumOfBin = sum(
                         twoColumns_ij.loc[(twoColumns_ij.iloc[:, 0] > 0), :].iloc[:, 1]
                     )
-                    if np.min(sumOfBin, (nNonZero - sumOfBin)) >= np.floor(
+                    if np.min( (sumOfBin, (nNonZero - sumOfBin) ) ) >= np.floor(
                         balanceCut * nSubQualif
                     ):
-                        taxaBalanceBin = np.hstack(taxaBalanceBin, taxaNames[i])
+                        taxaBalanceBin = np.hstack( (taxaBalanceBin, taxaNames[i]) )
 
             taxaBalanceBin = np.unique(taxaBalanceBin)
             # keep balanced taxa

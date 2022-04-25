@@ -3,10 +3,10 @@ import setuptools
 setuptools.setup(
     name="IFAA",
     version="0.1.0",
-    url="https://github.com/lovestat/ssfunc",
+    url="https://github.com/lovestat/IFAA",
     author="Shangchen Song",
     author_email="s.song@ufl.edu",
-    description="Allows conversion of Roman numerals to ints (and vice versa)",
+    description="Robust association identification and inference for absolute abundance in microbiome analyses",
     long_description=open('README.md').read(),
     packages=setuptools.find_packages(),
     install_requires=[],

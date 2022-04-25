@@ -8,8 +8,8 @@ Created on Mon Apr 18 16:09:17 2022
 import numpy as np
 from loadData import *
 
-res = IFAA(load_dataM().iloc[:,:], 
-           load_dataC().iloc[:,:], 
+res = IFAA(load_dataM(), 
+           load_dataC(), 
            testCov = ['v1'],
            ctrlCov = ['v2', 'v3'],
            paraJobs = 4,
@@ -22,6 +22,59 @@ res['sig_results']
 res['full_results']
 res['analysisResults']['finalizedBootRefTaxon']
 res['covriateNames']
+
+
+
+## Test Binary Var
+import numpy as np
+from loadData import *
+
+dataC = load_dataC()
+dataC['v4'] = [5]*20 + [6]*20
+# dataC['v5'] = ['5']*10 + ['6']*30
+dataC['v5'] = [5]*10 + [6]*30
+
+res_bin = IFAA(load_dataM(), 
+           dataC, 
+           testCov = ['v1', 'v4', 'v5'],
+           ctrlCov = ['v2', 'v3'],
+           paraJobs = 4,
+           linkIDname="id",
+           refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
+           bootB = 100,
+           sequentialRun=False)
+
+res_bin['sig_results']
+res_bin['full_results']
+res_bin['analysisResults']['finalizedBootRefTaxon']
+res_bin['covriateNames']
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 x = np.load("x.npy")
 y = np.load("y.npy")
