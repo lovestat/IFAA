@@ -5,8 +5,11 @@ Created on Mon Apr 18 16:09:17 2022
 @author: ss
 """
 
+from IFAA import *
 import numpy as np
 from loadData import *
+
+IFAA.__all__
 
 res = IFAA(load_dataM(), 
            load_dataC(), 
