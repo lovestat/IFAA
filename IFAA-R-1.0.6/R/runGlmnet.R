@@ -13,7 +13,8 @@ runGlmnet=function(
   intercept=TRUE,
   zeroSDCut=10^(-20)
 ){
-
+  print("RunGlmnet Phase I")
+  if (! "np" %in% ls() )   np <- reticulate::import("numpy")
   results=list()
 
   nBeta=ncol(x)
@@ -25,8 +26,12 @@ runGlmnet=function(
     x=x[,-xWithNearZeroSd,drop=FALSE]
   }
   rm(sdX)
-
-    cvResul=cv.glmnet(x=x,y=as.vector(y),nlambda=nLam,nfolds=nfolds,
+  
+  np$random$seed(as.integer(1))
+  foldid=np$random$choice(as.integer(10), as.integer(length(y)), replace=T)+1
+  foldid <- as.integer(foldid)
+  
+    cvResul=cv.glmnet(x=x,y=as.vector(y),nlambda=nLam,foldid = foldid,
                       family=family,intercept=intercept,standardize=FALSE)
 
     lamOpi=as.numeric(cvResul$lambda.min)

@@ -640,7 +640,6 @@ def dataInfo(
     nPredics = len(predNames)
 
     ## to add if qualifyreftax
-    # breakpoint()
     if qualifyRefTax:
         # find the pairs of binary preds and taxa for which the assocaiton is not identifiable
         if len(binPredInd) > 0:
@@ -1147,6 +1146,7 @@ def Regulariz(
     while_loop_ind = False
     loop_num = 0
     print("33 percent of phase 1 analysis has been done")
+    
     while while_loop_ind is False:
         if loop_num >= 2:
             break
@@ -1474,6 +1474,506 @@ def Regulariz(
     return results
 
 
+
+
+def getScrResu(
+    data,
+    testCovInd,
+    testCovInOrder,
+    testCovInNewNam,
+    nRef,
+    paraJobs,
+    refTaxa,
+    sequentialRun,
+    refReadsThresh,
+    SDThresh,
+    SDquantilThresh,
+    balanceCut,
+    Mprefix,
+    covsPrefix,
+    binPredInd,
+    adjust_method,
+    seed,
+    goodIndeCutPerc=0.33,
+):
+    results = {}
+    # run permutation
+    scrParal = runScrParal(
+        data=data,
+        testCovInd=testCovInd,
+        testCovInOrder=testCovInOrder,
+        testCovInNewNam=testCovInNewNam,
+        nRef=nRef,
+        paraJobs=paraJobs,
+        refTaxa=refTaxa,
+        sequentialRun=sequentialRun,
+        refReadsThresh=refReadsThresh,
+        SDThresh=SDThresh,
+        SDquantilThresh=SDquantilThresh,
+        balanceCut=balanceCut,
+        Mprefix=Mprefix,
+        covsPrefix=covsPrefix,
+        binPredInd=binPredInd,
+        adjust_method=adjust_method,
+        seed=seed,
+    )
+    
+    selecCountOverall = scrParal["countOfSelecForAPred"]
+    selecEstOverall = scrParal["estOfSelectForAPred"]
+
+    selecCountMatIndv = scrParal["testCovCountMat"]
+    selecEstMatIndv = scrParal["testEstMat"]
+
+    taxaNames = scrParal["taxaNames"]
+    goodRefTaxaCandi = scrParal["goodRefTaxaCandi"]
+
+    nTaxa = scrParal["nTaxa"]
+    nPredics = scrParal["nPredics"]
+    nTestCov = scrParal["nTestCov"]
+    results["refTaxa"] = scrParal["refTaxa"]
+    # rm(scrParal)
+
+    if nTestCov == 1:
+        results["selecCountMatIndv"] = selecCountOverall
+        results["selecEstMatIndv"] = selecEstOverall
+    if nTestCov > 1:
+        results["selecCountMatIndv"] = selecCountMatIndv
+        results["selecEstMatIndv"] = selecEstMatIndv
+        rm(selecCountMatIndv)
+
+    goodIndpRefTaxWithCount = selecCountOverall.iloc[
+        0, r_in(colnames(selecCountOverall), goodRefTaxaCandi)
+    ]
+    goodIndpRefTaxWithEst = selecEstOverall.iloc[
+        0, r_in(colnames(selecEstOverall), goodRefTaxaCandi)
+    ]
+
+    if len(goodIndpRefTaxWithCount) == 0:
+        results["goodIndpRefTaxLeastCount"] = np.array([])
+    else:
+        results["goodIndpRefTaxLeastCount"] = goodIndpRefTaxWithCount.index[
+            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+        ][0:2]
+        goodIndpRefTaxWithEst = np.abs(
+            goodIndpRefTaxWithEst[
+                np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+            ]
+        )
+        goodIndpRefTaxWithCount = goodIndpRefTaxWithCount[
+            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
+        ]
+
+    results["selecCountOverall"] = selecCountOverall
+    results["goodIndpRefTaxWithCount"] = goodIndpRefTaxWithCount
+    results["goodIndpRefTaxWithEst"] = goodIndpRefTaxWithEst
+    results["goodRefTaxaCandi"] = goodRefTaxaCandi
+    rm(goodRefTaxaCandi)
+    results["refTaxonQualified"] = 2
+    results["finalIndpRefTax"] = results["goodIndpRefTaxLeastCount"]
+
+    return results
+
+
+def originDataScreen(
+    data,
+    testCovInd,
+    nRef,
+    paraJobs,
+    refTaxa,
+    sequentialRun,
+    Mprefix,
+    covsPrefix,
+    binPredInd,
+    adjust_method,
+    seed,
+    maxDimensionScr=434 * 5 * 10 ** 5,
+):
+
+    results = {}
+
+    # load data info
+    basicInfo = dataInfo(
+        data=data, Mprefix=Mprefix, covsPrefix=covsPrefix, binPredInd=binPredInd
+    )
+
+    taxaNames = basicInfo["taxaNames"]
+    nTaxa = basicInfo["nTaxa"]
+    nPredics = basicInfo["nPredics"]
+    rm(basicInfo)
+
+    nNorm = nTaxa - 1
+    nAlphaNoInt = nPredics * nNorm
+    nAlphaSelec = nPredics * nTaxa
+
+    countOfSelec = np.zeros(nAlphaSelec)
+
+    # overwrite nRef if the reference taxon is specified
+    nRef = len(refTaxa)
+
+    forEachUnitRun_partial = partial(
+        forEachUnitRun,
+        taxaNames,
+        refTaxa,
+        Mprefix,
+        covsPrefix,
+        maxDimensionScr,
+        nPredics,
+        data,
+        nAlphaSelec,
+        nAlphaNoInt,
+        nTaxa,
+        seed,
+    )
+
+    startT1 = timeit.default_timer()
+    if len(paraJobs) == 0:
+        availCores = mp.cpu_count()
+        if isinstance(availCores, int):
+            paraJobs = max(1, availCores - 2)
+            
+
+    if not sequentialRun:
+        print(
+            paraJobs,
+            " parallel jobs are registered for analyzing ",
+            nRef,
+            " reference taxa in Phase 1",
+        )
+
+        with tqdm_joblib(tqdm(desc="Phase1-Par", total=nRef)) as progress_bar:
+            scr1Resu = Parallel(n_jobs=int(paraJobs))(
+                delayed(forEachUnitRun_partial)(i) for i in range(nRef)
+            )
+
+    if sequentialRun:
+        print(
+            " Sequential running analysis for ", nRef, " reference taxa in Phase 1",
+        )
+
+        scr1Resu = [
+            forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Phase1-Seq")
+        ]
+
+    endT = timeit.default_timer()
+
+    scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
+    scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
+
+    # create count of selection for individual testCov
+    countOfSelecForAllPred = scr1ResuSelec.sum(axis=1).reshape((-1, nPredics))
+    countOfSelecForAllPred = np.transpose(countOfSelecForAllPred)
+    EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((-1, nPredics))
+    EstOfAllPred = np.transpose(EstOfAllPred)
+
+    testCovCountMat = countOfSelecForAllPred[testCovInd, :]
+    testEstMat = EstOfAllPred[testCovInd, :]
+    # rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
+
+    # create overall count of selection for all testCov as a whole
+    countOfSelecForAPred = testCovCountMat.sum(axis=0).reshape((1, -1))
+    estOfSelectForAPred = testEstMat.sum(axis=0).reshape((1, -1))
+
+    countOfSelecForAPred = pd.DataFrame(countOfSelecForAPred)
+    estOfSelectForAPred = pd.DataFrame(estOfSelectForAPred)
+
+    countOfSelecForAPred.columns = taxaNames
+    estOfSelectForAPred.columns = taxaNames
+    # return results
+    results["testCovCountMat"] = testCovCountMat
+    results["testEstMat"] = testEstMat
+    # rm(testCovCountMat, testEstMat)
+    results["countOfSelecForAPred"] = countOfSelecForAPred
+    results["estOfSelectForAPred"] = estOfSelectForAPred
+    # rm(countOfSelecForAPred, estOfSelectForAPred)
+    return results
+
+
+def forEachUnitRun(
+    taxaNames,
+    refTaxa,
+    Mprefix,
+    covsPrefix,
+    maxDimensionScr,
+    nPredics,
+    data,
+    nAlphaSelec,
+    nAlphaNoInt,
+    nTaxa,
+    seed,
+    i,
+):
+
+    np.random.seed(seed + i)
+    scipy.random.seed(seed + i)
+
+    ii = which(taxaNames == refTaxa[i])
+    dataForEst = dataRecovTrans(
+        data=data, ref=refTaxa[i], Mprefix=Mprefix, covsPrefix=covsPrefix
+    )
+
+    xTildLongTild_i = dataForEst["xTildalong"]
+    yTildLongTild_i = dataForEst["UtildaLong"]
+    # rm(dataForEst)
+
+    maxSubSamplSiz = np.min(
+        (50000.0, np.floor(maxDimensionScr / xTildLongTild_i.shape[1]))
+    ).astype(int)
+
+    nToSamplFrom = xTildLongTild_i.shape[0]
+
+    subSamplK = np.ceil(nToSamplFrom / maxSubSamplSiz).astype(int)
+
+    if subSamplK == 1:
+        maxSubSamplSiz = nToSamplFrom
+
+    nRuns = np.ceil(subSamplK / 3).astype(int)
+    
+    ## ChangePoint
+    nRuns = 3 
+    maxSubSamplSiz = int(nToSamplFrom / 2)
+
+    
+    for k in range(nRuns):
+        np.random.seed(int(seed+k))
+        rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
+        x = xTildLongTild_i[rowToKeep, :]
+        y = yTildLongTild_i[rowToKeep]
+
+        if True: # x.shape[0] > (3 * x.shape[1]): # ChangePoint
+            Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
+            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
+            EstNoInt_k = np.abs(Penal_i["coef_est_noint"])
+        else:
+            Penal_i = runGlmnet(x=x, y=y, nPredics=nPredics)
+            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
+            EstNoInt_k = np.abs(Penal_i["betaNoInt"])
+
+        # rm(Penal_i)
+        if k == 0:
+            BetaNoInt_i = BetaNoInt_k
+            EstNoInt_i = EstNoInt_k
+        if k > 0:
+            BetaNoInt_i = BetaNoInt_i + BetaNoInt_k
+            EstNoInt_i = EstNoInt_i + EstNoInt_k
+        # rm(BetaNoInt_k, EstNoInt_k)
+
+    # rm(k, x, y, xTildLongTild_i)
+    BetaNoInt_i = BetaNoInt_i / nRuns
+    EstNoInt_i = EstNoInt_i / nRuns
+    selection_i = np.zeros(nAlphaSelec)
+    coef_i = np.zeros(nAlphaSelec)
+
+    if ii == 0:
+        np_assign_but(selection_i, np.linspace(0, nPredics - 1, nPredics), BetaNoInt_i)
+        np_assign_but(coef_i, np.linspace(0, nPredics - 1, nPredics), EstNoInt_i)
+    if ii == (nTaxa - 1):
+        np_assign_but(
+            selection_i,
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
+            BetaNoInt_i,
+        )
+        np_assign_but(
+            coef_i,
+            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
+            EstNoInt_i,
+        )
+    if (ii > 0) & (ii < (nTaxa - 1)):
+        selection_i[0 : int((nPredics * (ii)))] = BetaNoInt_i[
+            0 : int((nPredics * (ii)))
+        ]
+        selection_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = BetaNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt + 1)
+        ]
+        coef_i[0 : int((nPredics * (ii)))] = EstNoInt_i[0 : int((nPredics * (ii)))]
+        coef_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = EstNoInt_i[
+            int(nPredics * (ii)) : (nAlphaNoInt + 1)
+        ]
+    # rm(BetaNoInt_i)
+    # create return vector
+    recturnlist = {}
+    recturnlist["selection"] = selection_i
+    recturnlist["coef"] = coef_i
+    return recturnlist
+
+
+def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
+    results = {}
+    
+    print("runLinear Phase I")
+    
+    # denote linear dependent columns
+    mask = np.ones(x.shape[1], dtype=bool)
+    ld_col = detectLDcol(x)
+    mask[ld_col] = False    
+    
+    lm_res = OLS(y, x[:, mask]).fit()
+    
+    p_value_est = np.empty(x.shape[1])
+    p_value_est[mask] = lm_res.pvalues
+    p_value_est[~mask] = np.nan  
+
+    disc_index = np.arange(0, len(p_value_est), (nPredics + 1))    
+    p_value_est_noint = np.delete(p_value_est, disc_index, axis=0)
+
+    ## this method automatically convert over 1 values to 1
+    p_value_est_noint_adj = multipleTest(
+        p_value_est_noint, method=adjust_method
+    )
+    p_value_est_noint_adj[~np.isfinite(p_value_est_noint_adj)] = 1
+    
+    # p_value_est_noint_adj = multipletests(
+    #     p_value_est_noint, alpha=0.05, method=adjust_method
+    # )[1]
+
+    coef_est = np.empty(x.shape[1])
+    coef_est[mask] = np.abs(lm_res.params)
+    coef_est[~mask] = np.nan
+
+    disc_index = np.arange(0, len(coef_est), (nPredics + 1))
+    coef_est_noint = np.delete(coef_est, disc_index, axis=0)
+    coef_est_noint[~np.isfinite(coef_est_noint)] = np.nanmax(coef_est_noint)
+
+    # return
+    results["betaNoInt"] = p_value_est_noint_adj < fwerRate
+    results["betaInt"] = p_value_est
+    results["coef_est_noint"] = coef_est_noint
+
+    return results
+
+
+def detectLDcol(mat):
+    """
+    Detect Linear Dependent Columns in a matrix
+    https://stackoverflow.com/questions/53667174/elimination-the-linear-dependent-columns-of-a-non-square-matrix-in-python
+    """
+    
+    # add constant columns
+    # test which is faster
+    q,r = np.linalg.qr(mat)
+    return which(np.abs(np.diag(r))<=1e-10)
+
+
+def multipleTest(p, method):
+    ## R's p.adjust(*, method = "BH")
+
+    p0 = p
+    nna = np.isfinite(p)
+    if not all( nna ):
+        p = p[nna]
+    lp = len(p)
+
+    i = np.array(list(range(lp, 0, -1)))
+    o = np.argsort(-p) + 1
+    ro = np.argsort(o) + 1
+    
+    p0[nna] = np.minimum(1, np.minimum.accumulate(len(p)/i * p[o-1]) )[ro-1]
+    
+    return p0
+
+
+def runGlmnet(
+    x,
+    y,
+    nPredics,
+    standardize=False,
+    family="gaussian",
+    nfolds=10,
+    lambda_min_ratio=0.05,
+    nLam=100,
+    intercept=True,
+    zeroSDCut=10 ** (-20),
+):
+    print("runGlmnet Phase I")
+    results = {}
+    nBeta = x.shape[1]
+
+    # remove near constant x columns
+    sdX = np.std(x, axis=0, ddof=1)
+    xWithNearZeroSd = which(sdX <= zeroSDCut)
+    if len(xWithNearZeroSd) > 0:
+        x = np.delete(x, xWithNearZeroSd, axis=1)
+        
+    np.random.seed(1)
+    foldid = np.random.choice(int(10), int(len(y)), replace=True)
+    
+    cvResul = cvglmnet(
+        x=x.copy(),
+        y=y.copy(),
+        alpha=1,
+        nlambda=nLam,
+        standardize=standardize,
+        intr=intercept,
+        family=family,
+        foldid=foldid
+    )
+    
+
+    finalLassoRunBeta = cvglmnetCoef(cvResul, s="lambda_min")[1:].flatten()
+
+    # convert back to the full beta if there near constant x columns
+    if len(xWithNearZeroSd) > 0:
+        betaTrans = groupBetaToFullBeta(
+            nTaxa=nBeta,
+            nPredics=1,
+            unSelectList=np.sort(xWithNearZeroSd),
+            newBetaNoInt=finalLassoRunBeta,
+        )
+        beta = betaTrans["finalBeta"]
+    else:
+        beta = finalLassoRunBeta
+
+    disc_index = np.arange(0, len(beta), (nPredics + 1))
+    results["betaNoInt"] = np.delete(beta, disc_index, axis=0)
+
+    return results
+
+
+def groupBetaToFullBeta(nTaxa, nPredics, unSelectList, newBetaNoInt):
+    print("Called groupBetaToFullBeta")
+    results = {}
+    unSelectList = np.unique(np.sort(unSelectList))
+    nUnSelec = len(unSelectList)
+    nAlphaSelec = nTaxa * nPredics
+    nNewBetaNoInt = len(newBetaNoInt)
+
+    if nNewBetaNoInt != ((nTaxa - nUnSelec) * nPredics):
+        raise Exception(
+            "Error: Beta dimension from grouped analyis does not match the expected number"
+        )
+
+    if nTaxa < np.max(unSelectList) | 1 > np.min(unSelectList):
+        raise Exception("Error: unSelectList out of range")
+
+    finalBeta = newBetaNoInt
+
+    for i in unSelectList:
+        finalBetaTemp = np.empty((len(finalBeta) + nPredics))
+        lengthTemp = len(finalBetaTemp)
+
+        if i == 1:
+            finalBetaTemp[0:nPredics] = 0
+            finalBetaTemp[nPredics : (lengthTemp + 1)] = finalBeta
+            finalBeta = finalBetaTemp
+
+        if i > 1:
+            if (i * nPredics) <= len(finalBeta):
+                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta[
+                    0 : ((i - 1) * nPredics)
+                ]
+                finalBetaTemp[((i - 1) * nPredics) : (i * nPredics)] = 0
+                finalBetaTemp[(i * nPredics) : lengthTemp] = finalBeta[
+                    ((i - 1) * nPredics) : (len(finalBeta))
+                ]
+            else:
+                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta
+                finalBetaTemp[((i - 1) * nPredics) : lengthTemp] = 0
+
+            finalBeta = finalBetaTemp
+
+    results["finalBeta"] = finalBeta
+    return results
+
+
 def bootResuHDCI(
     data,
     refTaxa,
@@ -1534,20 +2034,31 @@ def bootResuHDCI(
         maxSubSamplSiz = nToSamplFrom
 
     nRuns = math.ceil(subSamplK / 3)
+    
+    ## ChangePoint
+    nRuns = 3 
+    maxSubSamplSiz = int(nToSamplFrom / 2)
+    
 
-    if x.shape[0] > x.shape[1]:  # False:  #  ## ChangePoint
+    if False :  #x.shape[0] > x.shape[1]:  #   ## ChangePoint
         for k in range(nRuns):
+            np.random.seed(int(seed+k))
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
             xSub = x[rowToKeep, :]
             ySub = y[rowToKeep]
-
+            
+            print("runLinear Phase 2")
+            
+            ## Remove Linear Dependent Columns ChangePoint
             lm_res = OLS(ySub, xSub).fit()
+            
+            ## ChangePoint
 
-            lm_res.summary()
-            lm_res.params
-            lm_res.bse
-            lm_res.tvalues
-            lm_res.pvalues
+            # lm_res.summary()
+            # lm_res.params
+            # lm_res.bse
+            # lm_res.tvalues
+            # lm_res.pvalues
 
             bootResu = np.transpose(
                 np.vstack((lm_res.params, lm_res.bse, lm_res.tvalues, lm_res.pvalues))
@@ -1584,6 +2095,7 @@ def bootResuHDCI(
             boot_est_CI_low = boot_est_par - 1.96 * se_est
             boot_est_CI_up = boot_est_par + 1.96 * se_est
 
+            ## ChangePoint 
             p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
 
             p_value_save_mat[ii, :] = p_value_adj
@@ -1593,10 +2105,14 @@ def bootResuHDCI(
             se_mat[ii,] = se_est
 
     else:
+        # breakpoint()
         for k in range(nRuns):
+            np.random.seed(int(seed+k))
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
             xSub = x[rowToKeep, :]
             ySub = y[rowToKeep]
+
+            print("runGlmnet Phase 2")
 
             bootResu = runBootLassoHDCI(
                 x=xSub,
@@ -1739,444 +2255,6 @@ def bootResuHDCI(
     return results
 
 
-def getScrResu(
-    data,
-    testCovInd,
-    testCovInOrder,
-    testCovInNewNam,
-    nRef,
-    paraJobs,
-    refTaxa,
-    sequentialRun,
-    refReadsThresh,
-    SDThresh,
-    SDquantilThresh,
-    balanceCut,
-    Mprefix,
-    covsPrefix,
-    binPredInd,
-    adjust_method,
-    seed,
-    goodIndeCutPerc=0.33,
-):
-    results = {}
-    # run permutation
-    scrParal = runScrParal(
-        data=data,
-        testCovInd=testCovInd,
-        testCovInOrder=testCovInOrder,
-        testCovInNewNam=testCovInNewNam,
-        nRef=nRef,
-        paraJobs=paraJobs,
-        refTaxa=refTaxa,
-        sequentialRun=sequentialRun,
-        refReadsThresh=refReadsThresh,
-        SDThresh=SDThresh,
-        SDquantilThresh=SDquantilThresh,
-        balanceCut=balanceCut,
-        Mprefix=Mprefix,
-        covsPrefix=covsPrefix,
-        binPredInd=binPredInd,
-        adjust_method=adjust_method,
-        seed=seed,
-    )
-    selecCountOverall = scrParal["countOfSelecForAPred"]
-    selecEstOverall = scrParal["estOfSelectForAPred"]
-
-    selecCountMatIndv = scrParal["testCovCountMat"]
-    selecEstMatIndv = scrParal["testEstMat"]
-
-    taxaNames = scrParal["taxaNames"]
-    goodRefTaxaCandi = scrParal["goodRefTaxaCandi"]
-
-    nTaxa = scrParal["nTaxa"]
-    nPredics = scrParal["nPredics"]
-    nTestCov = scrParal["nTestCov"]
-    results["refTaxa"] = scrParal["refTaxa"]
-    # rm(scrParal)
-
-    if nTestCov == 1:
-        results["selecCountMatIndv"] = selecCountOverall
-        results["selecEstMatIndv"] = selecEstOverall
-    if nTestCov > 1:
-        results["selecCountMatIndv"] = selecCountMatIndv
-        results["selecEstMatIndv"] = selecEstMatIndv
-        rm(selecCountMatIndv)
-
-    goodIndpRefTaxWithCount = selecCountOverall.iloc[
-        0, r_in(colnames(selecCountOverall), goodRefTaxaCandi)
-    ]
-    goodIndpRefTaxWithEst = selecEstOverall.iloc[
-        0, r_in(colnames(selecEstOverall), goodRefTaxaCandi)
-    ]
-
-    if len(goodIndpRefTaxWithCount) == 0:
-        results["goodIndpRefTaxLeastCount"] = np.array([])
-    else:
-        results["goodIndpRefTaxLeastCount"] = goodIndpRefTaxWithCount.index[
-            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
-        ][0:2]
-        goodIndpRefTaxWithEst = np.abs(
-            goodIndpRefTaxWithEst[
-                np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
-            ]
-        )
-        goodIndpRefTaxWithCount = goodIndpRefTaxWithCount[
-            np.lexsort((np.abs(goodIndpRefTaxWithEst), goodIndpRefTaxWithCount))
-        ]
-
-    results["selecCountOverall"] = selecCountOverall
-    results["goodIndpRefTaxWithCount"] = goodIndpRefTaxWithCount
-    results["goodIndpRefTaxWithEst"] = goodIndpRefTaxWithEst
-    results["goodRefTaxaCandi"] = goodRefTaxaCandi
-    rm(goodRefTaxaCandi)
-    results["refTaxonQualified"] = 2
-    results["finalIndpRefTax"] = results["goodIndpRefTaxLeastCount"]
-
-    return results
-
-
-def originDataScreen(
-    data,
-    testCovInd,
-    nRef,
-    paraJobs,
-    refTaxa,
-    sequentialRun,
-    Mprefix,
-    covsPrefix,
-    binPredInd,
-    adjust_method,
-    seed,
-    maxDimensionScr=434 * 5 * 10 ** 5,
-):
-
-    results = {}
-
-    # load data info
-    basicInfo = dataInfo(
-        data=data, Mprefix=Mprefix, covsPrefix=covsPrefix, binPredInd=binPredInd
-    )
-
-    taxaNames = basicInfo["taxaNames"]
-    nTaxa = basicInfo["nTaxa"]
-    nPredics = basicInfo["nPredics"]
-    rm(basicInfo)
-
-    nNorm = nTaxa - 1
-    nAlphaNoInt = nPredics * nNorm
-    nAlphaSelec = nPredics * nTaxa
-
-    countOfSelec = np.zeros(nAlphaSelec)
-
-    # overwrite nRef if the reference taxon is specified
-    nRef = len(refTaxa)
-
-    forEachUnitRun_partial = partial(
-        forEachUnitRun,
-        taxaNames,
-        refTaxa,
-        Mprefix,
-        covsPrefix,
-        maxDimensionScr,
-        nPredics,
-        data,
-        nAlphaSelec,
-        nAlphaNoInt,
-        nTaxa,
-        seed,
-    )
-
-    startT1 = timeit.default_timer()
-    if len(paraJobs) == 0:
-        availCores = mp.cpu_count()
-        if isinstance(availCores, int):
-            paraJobs = max(1, availCores - 2)
-
-    if not sequentialRun:
-        print(
-            paraJobs,
-            " parallel jobs are registered for analyzing ",
-            nRef,
-            " reference taxa in Phase 1",
-        )
-
-        with tqdm_joblib(tqdm(desc="Phase1-Par", total=nRef)) as progress_bar:
-            scr1Resu = Parallel(n_jobs=int(paraJobs))(
-                delayed(forEachUnitRun_partial)(i) for i in range(nRef)
-            )
-
-    if sequentialRun:
-        print(
-            " Sequential running analysis for ", nRef, " reference taxa in Phase 1",
-        )
-
-        scr1Resu = [
-            forEachUnitRun_partial(i) for i in tqdm(range(nRef), desc="Phase1-Seq")
-        ]
-
-    endT = timeit.default_timer()
-
-    scr1ResuSelec = np.hstack([i["selection"][:, np.newaxis] for i in scr1Resu])
-    scr1ResuEst = np.hstack([i["coef"][:, np.newaxis] for i in scr1Resu])
-
-    # create count of selection for individual testCov
-    countOfSelecForAllPred = scr1ResuSelec.sum(axis=1).reshape((-1, nPredics))
-    countOfSelecForAllPred = np.transpose(countOfSelecForAllPred)
-    EstOfAllPred = scr1ResuEst.sum(axis=1).reshape((-1, nPredics))
-    EstOfAllPred = np.transpose(EstOfAllPred)
-
-    testCovCountMat = countOfSelecForAllPred[testCovInd, :]
-    testEstMat = EstOfAllPred[testCovInd, :]
-    # rm(scr1ResuSelec, testCovInd, countOfSelecForAllPred, EstOfAllPred)
-
-    # create overall count of selection for all testCov as a whole
-    countOfSelecForAPred = testCovCountMat.sum(axis=0).reshape((1, -1))
-    estOfSelectForAPred = testEstMat.sum(axis=0).reshape((1, -1))
-
-    countOfSelecForAPred = pd.DataFrame(countOfSelecForAPred)
-    estOfSelectForAPred = pd.DataFrame(estOfSelectForAPred)
-
-    countOfSelecForAPred.columns = taxaNames
-    estOfSelectForAPred.columns = taxaNames
-
-    # return results
-    results["testCovCountMat"] = testCovCountMat
-    results["testEstMat"] = testEstMat
-    # rm(testCovCountMat, testEstMat)
-    results["countOfSelecForAPred"] = countOfSelecForAPred
-    results["estOfSelectForAPred"] = estOfSelectForAPred
-    # rm(countOfSelecForAPred, estOfSelectForAPred)
-    return results
-
-
-def forEachUnitRun(
-    taxaNames,
-    refTaxa,
-    Mprefix,
-    covsPrefix,
-    maxDimensionScr,
-    nPredics,
-    data,
-    nAlphaSelec,
-    nAlphaNoInt,
-    nTaxa,
-    seed,
-    i,
-):
-    np.random.seed(seed + i)
-    scipy.random.seed(seed + i)
-
-    ii = which(taxaNames == refTaxa[i])
-    dataForEst = dataRecovTrans(
-        data=data, ref=refTaxa[i], Mprefix=Mprefix, covsPrefix=covsPrefix
-    )
-
-    xTildLongTild_i = dataForEst["xTildalong"]
-    yTildLongTild_i = dataForEst["UtildaLong"]
-    rm(dataForEst)
-
-    maxSubSamplSiz = np.min(
-        (50000.0, np.floor(maxDimensionScr / xTildLongTild_i.shape[1]))
-    ).astype(int)
-
-    nToSamplFrom = xTildLongTild_i.shape[0]
-
-    subSamplK = np.ceil(nToSamplFrom / maxSubSamplSiz).astype(int)
-
-    if subSamplK == 1:
-        maxSubSamplSiz = nToSamplFrom
-
-    nRuns = np.ceil(subSamplK / 3).astype(int)
-
-    for k in range(nRuns):
-        rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
-
-        x = xTildLongTild_i[rowToKeep, :]
-        y = yTildLongTild_i[rowToKeep]
-
-        if x.shape[0] > (3 * x.shape[1]):
-            Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
-            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
-            EstNoInt_k = np.abs(Penal_i["coef_est_noint"])
-        else:
-            Penal_i = runGlmnet(x=x, y=y, nPredics=nPredics)
-            BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
-            EstNoInt_k = np.abs(Penal_i["betaNoInt"])
-
-        rm(Penal_i)
-        if k == 0:
-            BetaNoInt_i = BetaNoInt_k
-            EstNoInt_i = EstNoInt_k
-        if k > 0:
-            BetaNoInt_i = BetaNoInt_i + BetaNoInt_k
-            EstNoInt_i = EstNoInt_i + EstNoInt_k
-        rm(BetaNoInt_k, EstNoInt_k)
-
-    rm(k, x, y, xTildLongTild_i)
-    BetaNoInt_i = BetaNoInt_i / nRuns
-    EstNoInt_i = EstNoInt_i / nRuns
-    selection_i = np.zeros(nAlphaSelec)
-    coef_i = np.zeros(nAlphaSelec)
-
-    if ii == 0:
-        np_assign_but(selection_i, np.linspace(0, nPredics - 1, nPredics), BetaNoInt_i)
-        np_assign_but(coef_i, np.linspace(0, nPredics - 1, nPredics), EstNoInt_i)
-    if ii == (nTaxa - 1):
-        np_assign_but(
-            selection_i,
-            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
-            BetaNoInt_i,
-        )
-        np_assign_but(
-            coef_i,
-            np.linspace(nAlphaSelec - nPredics, nAlphaSelec - 1, nPredics),
-            EstNoInt_i,
-        )
-    if (ii > 0) & (ii < (nTaxa - 1)):
-        selection_i[0 : int((nPredics * (ii)))] = BetaNoInt_i[
-            0 : int((nPredics * (ii)))
-        ]
-        selection_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = BetaNoInt_i[
-            int(nPredics * (ii)) : (nAlphaNoInt + 1)
-        ]
-        coef_i[0 : int((nPredics * (ii)))] = EstNoInt_i[0 : int((nPredics * (ii)))]
-        coef_i[int(nPredics * (ii + 1)) : (nAlphaSelec)] = EstNoInt_i[
-            int(nPredics * (ii)) : (nAlphaNoInt + 1)
-        ]
-    rm(BetaNoInt_i)
-    # create return vector
-    recturnlist = {}
-    recturnlist["selection"] = selection_i
-    recturnlist["coef"] = coef_i
-    return recturnlist
-
-
-def runlinear(x, y, nPredics, fwerRate=0.25, adjust_method="fdr_bh"):
-
-    results = {}
-    lm_res = OLS(y, x).fit()
-    p_value_est = lm_res.pvalues
-    disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
-    p_value_est_noint = np.delete(p_value_est, disc_index, axis=0)
-
-    ## this method automatically convert over 1 values to 1
-    p_value_est_noint_adj = multipletests(
-        p_value_est_noint, alpha=0.05, method=adjust_method
-    )[1]
-
-    coef_est = np.abs(lm_res.params)
-    disc_index = np.arange(0, len(p_value_est), (nPredics + 1))
-    ## NA coef is not considered here
-    coef_est_noint = np.delete(coef_est, disc_index, axis=0)
-
-    # return
-    results["betaNoInt"] = p_value_est_noint_adj < fwerRate
-    # results["betaInt"] = p_value_est
-    results["coef_est_noint"] = coef_est_noint
-
-    return results
-
-
-def runGlmnet(
-    x,
-    y,
-    nPredics,
-    standardize=False,
-    family="gaussian",
-    nfolds=10,
-    lambda_min_ratio=0.05,
-    nLam=100,
-    intercept=True,
-    zeroSDCut=10 ** (-20),
-):
-
-    results = {}
-    nBeta = x.shape[1]
-
-    # remove near constant x columns
-    sdX = np.std(x, axis=0, ddof=1)
-    xWithNearZeroSd = which(sdX <= zeroSDCut)
-    if len(xWithNearZeroSd) > 0:
-        x = np.delete(x, xWithNearZeroSd, axis=1)
-    rm(sdX)
-
-    cvResul = cvglmnet(
-        x=x,
-        y=y,
-        alpha=1,
-        nlambda=nLam,
-        standardize=standardize,
-        intr=intercept,
-        family=family,
-        nfolds=nfolds,
-    )
-
-    finalLassoRunBeta = cvglmnetCoef(cvResul, s="lambda_min")[1:]
-
-    # convert back to the full beta if there near constant x columns
-    if len(xWithNearZeroSd) > 0:
-        betaTrans = groupBetaToFullBeta(
-            nTaxa=nBeta,
-            nPredics=1,
-            unSelectList=np.sort(xWithNearZeroSd),
-            newBetaNoInt=finalLassoRunBeta,
-        )
-        beta = betaTrans["finalBeta"]
-    else:
-        beta = finalLassoRunBeta
-
-    disc_index = np.arange(0, len(beta), (nPredics + 1))
-    results["betaNoInt"] = np.delete(beta, disc_index, axis=0)
-
-    return results
-
-
-def groupBetaToFullBeta(nTaxa, nPredics, unSelectList, newBetaNoInt):
-    results = {}
-    unSelectList = np.unique(np.sort(unSelectList))
-    nUnSelec = len(unSelectList)
-    nAlphaSelec = nTaxa * nPredics
-    nNewBetaNoInt = len(newBetaNoInt)
-
-    if nNewBetaNoInt != ((nTaxa - nUnSelec) * nPredics):
-        raise Exception(
-            "Error: Beta dimension from grouped analyis does not match the expected number"
-        )
-
-    if nTaxa < np.max(unSelectList) | 1 > np.min(unSelectList):
-        raise Exception("Error: unSelectList out of range")
-
-    finalBeta = newBetaNoInt
-
-    for i in range(unSelectList):
-        finalBetaTemp = np.empty((len(finalBeta) + nPredics))
-        lengthTemp = len(finalBetaTemp)
-
-        if i == 1:
-            finalBetaTemp[0:nPredics] = 0
-            finalBetaTemp[nPredics : (lengthTemp + 1)] = finalBeta
-            finalBeta = finalBetaTemp
-
-        if i > 1:
-            if (i * nPredics) <= len(finalBeta):
-                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta[
-                    0 : ((i - 1) * nPredics)
-                ]
-                finalBetaTemp[((i - 1) * nPredics) : (i * nPredics)] = 0
-                finalBetaTemp[(i * nPredics) : lengthTemp] = finalBeta[
-                    ((i - 1) * nPredics) : (len(finalBeta))
-                ]
-            else:
-                finalBetaTemp[0 : ((i - 1) * nPredics)] = finalBeta
-                finalBetaTemp[((i - 1) * nPredics) : lengthTemp] = 0
-
-            finalBeta = finalBetaTemp
-
-    results["finalBeta"] = finalBeta
-    return results
-
-
 def runBootLassoHDCI(
     x,
     y,
@@ -2197,6 +2275,7 @@ def runBootLassoHDCI(
     sdX = np.std(x, axis=0, ddof=1)
     xWithNearZeroSd = which(sdX <= zeroSDCut)
 
+    # ChangePoint Cor
     df_cor = np.corrcoef(x, rowvar=False)
     excluCorColumns = which(
         np.apply_along_axis(
@@ -2210,6 +2289,7 @@ def runBootLassoHDCI(
     rm(sdX)
 
     nearZeroSd = len(xWithNearZeroSd)
+    
     ## Bootstrap
     bootResu = bootLassoCI(
         x,
@@ -2225,13 +2305,14 @@ def runBootLassoHDCI(
     beta_LPR = bootResu["Beta_LPR"][:, 0]
     betaCI_LPR = bootResu["interval_LPR"]
 
+    
     # transform vector back
     if len(xWithNearZeroSd) > 0:
         betaTransLasso_L = groupBetaToFullBeta(
             nTaxa=nBeta,
             nPredics=1,
             unSelectList=np.sort(xWithNearZeroSd),
-            newBetaNoInt=beta_LPR[:, 0],
+            newBetaNoInt=beta_LPR,
         )
 
         beta_LPR = betaTransLasso_L["finalBeta"]
@@ -2274,11 +2355,15 @@ def bootLassoCI(
     intercept=True,
     bootB=50,
 ):
+
     results = {}
-    alpha = 1  ## lasso ##ChangePoint
+    alpha = 1  ## lasso 
+    
+    ##ChangePoint Remove LD columns and constant columns 
 
     np.random.seed(seed)
     scipy.random.seed(seed)
+    foldid = np.random.choice(int(nfolds), int(len(y)), replace=True)
 
     cvResul = cvglmnet(
         x=x,
@@ -2287,7 +2372,7 @@ def bootLassoCI(
         nlambda=nLam,
         standardize=standardize,
         intr=intercept,
-        nfolds=nfolds,
+        foldid = foldid
     )
 
     results["Beta_LPR"] = cvglmnetCoef(cvResul, s="lambda_min")[1:]
@@ -2313,7 +2398,7 @@ def bootLassoCI(
 
     if sequentialRun:
         bootRunList = [
-            bootLassoCIUnit_partial() for _ in tqdm(range(bootB), desc="Phase2-Seq")
+            bootLassoCIUnit_partial(i) for i in tqdm(range(bootB), desc="Phase2-Seq")
         ]
 
     bootRunStack = np.hstack(bootRunList)
@@ -2407,7 +2492,7 @@ def cbind(x):
 
 
 def which(x):
-    return np.array([i for i, j in enumerate(x) if j])
+    return np.array([i for i, j in enumerate(x) if j], dtype=int)
 
 
 def np_assign_but(ar, but_ind, v):

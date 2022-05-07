@@ -18,7 +18,10 @@ originDataScreen=function(
   seed){
 
   results=list()
-
+  
+  ## ChangePoint
+  np <- reticulate::import("numpy")
+  
   # load data info
   basicInfo=dataInfo(data=data,Mprefix=Mprefix,
                      covsPrefix=covsPrefix,
@@ -27,7 +30,6 @@ originDataScreen=function(
   taxaNames=basicInfo$taxaNames
   nTaxa=basicInfo$nTaxa
   nPredics=basicInfo$nPredics
-  rm(basicInfo)
   gc()
 
   nNorm=nTaxa-1
@@ -71,7 +73,7 @@ originDataScreen=function(
     if(forLoopN>1 & jj<forLoopN){
       scr1Resu.j=foreach(i=((jj-1)*batch+1):(jj*batch),
                          .multicombine=TRUE,
-                         .packages=c("glmnet","Matrix"),
+                         .packages=c("glmnet","Matrix", "reticulate"),
                          .errorhandling="pass") %dopar% {
 
 
@@ -81,7 +83,6 @@ originDataScreen=function(
 
                            xTildLongTild.i=dataForEst$xTildalong
                            yTildLongTild.i=dataForEst$UtildaLong
-                           rm(dataForEst)
                            gc()
 
                            maxSubSamplSiz=min(50000,floor(maxDimensionScr/ncol(xTildLongTild.i)))
@@ -91,14 +92,39 @@ originDataScreen=function(
                              if(subSamplK==1)maxSubSamplSiz=nToSamplFrom
 
                              nRuns=ceiling(subSamplK/3)
-
+                             # nRuns = 10 # ChangePoint
+                             # maxSubSamplSiz = nToSamplFrom / 2
+                             # RunLinear / RunGlmnet
+                             # CI INFERENCE  RunLinear / RunGlmnet
+                             
+                             # ====== #
+                             
+                             ## Zero SD variable
+                             ## v6 = all 0
+                             ## v7 = all 0
+                             
+                             ## ChangePoint
+                             nRuns = 3 
+                             maxSubSamplSiz = nToSamplFrom / 2
+                             
+                             # if (ii == 17) {
+                             #   browser()
+                             # }
+                             
                              for (k in 1:nRuns){
-                               rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
+                               # rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
+                               # x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
+                               # y=yTildLongTild.i[rowToKeep]
+                               
+                               ## ChangePoint
+                               np$random$seed(as.integer(seed+k-1))
+                               rowToKeep=np$random$choice(as.integer(nToSamplFrom), as.integer(maxSubSamplSiz), replace=FALSE)+1
+                               rowToKeep <- as.integer(rowToKeep)
                                x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
                                y=yTildLongTild.i[rowToKeep]
 
 
-                               if (dim(x)[1]>(3*dim(x)[2])) {
+                               if (T){ # (dim(x)[1]>(3*dim(x)[2])) {
                                  Penal.i=runlinear(x=x,y=y,
                                                    nPredics=nPredics)
                                  BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
@@ -109,7 +135,6 @@ originDataScreen=function(
                                  BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
                                  EstNoInt.k<-abs(Penal.i$betaNoInt)
                                }
-                               rm(Penal.i)
                                if(k==1) {
                                  BetaNoInt.i=BetaNoInt.k
                                  EstNoInt.i=EstNoInt.k
@@ -118,10 +143,11 @@ originDataScreen=function(
                                  BetaNoInt.i=BetaNoInt.i+BetaNoInt.k
                                  EstNoInt.i=EstNoInt.i+EstNoInt.k
                                }
-                               rm(BetaNoInt.k,EstNoInt.k)
                              }
-                             rm(k,x,y,xTildLongTild.i)
-                             gc()
+
+                             # if (ii == 17) {
+                             #   browser()
+                             # }
                              BetaNoInt.i=BetaNoInt.i/nRuns
                              EstNoInt.i=EstNoInt.i/nRuns
 
@@ -141,12 +167,10 @@ originDataScreen=function(
                              coef.i[1:(nPredics*(ii-1))]=EstNoInt.i[1:(nPredics*(ii-1))]
                              coef.i[(nPredics*ii+1):nAlphaSelec]=EstNoInt.i[(nPredics*(ii-1)+1):nAlphaNoInt]
                            }
-                           rm(BetaNoInt.i)
                            # create return vector
                            recturnlist=list()
                            recturnlist[[1]]=selection.i
                            recturnlist[[2]]<-coef.i
-                           rm(selection.i,yTildLongTild.i,coef.i)
                            return(recturnlist)
                          }
       parallel::stopCluster(cl)
@@ -158,7 +182,7 @@ originDataScreen=function(
     if(jj==forLoopN){
       scr1Resu.j=foreach(i=((forLoopN-1)*batch+1):nRef,
                          .multicombine=TRUE,
-                         .packages=c("glmnet","Matrix"),
+                         .packages=c("glmnet","Matrix", "reticulate"),
                          .errorhandling="pass") %dopar% {
 
 
@@ -168,7 +192,6 @@ originDataScreen=function(
 
                            xTildLongTild.i=dataForEst$xTildalong
                            yTildLongTild.i=dataForEst$UtildaLong
-                           rm(dataForEst)
                            gc()
 
                            maxSubSamplSiz=min(50000,floor(maxDimensionScr/ncol(xTildLongTild.i)))
@@ -179,12 +202,25 @@ originDataScreen=function(
 
                              nRuns=ceiling(subSamplK/3)
 
-                             for (k in 1:nRuns){
-                               rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
-                               x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
-                               y=(yTildLongTild.i[rowToKeep])
+                             ## ChangePoint
+                             nRuns = 3 
+                             maxSubSamplSiz = nToSamplFrom / 2
+                             
 
-                               if (dim(x)[1]>(3*dim(x)[2])) {
+                             
+                             for (k in 1:nRuns){
+                               # rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
+                               # x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
+                               # y=(yTildLongTild.i[rowToKeep])
+                               
+                               ## ChangePoint
+                               np$random$seed(as.integer(seed+k-1))
+                               rowToKeep=np$random$choice(as.integer(nToSamplFrom), as.integer(maxSubSamplSiz), replace=FALSE)+1
+                               rowToKeep <- as.integer(rowToKeep)
+                               x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
+                               y=yTildLongTild.i[rowToKeep]
+
+                               if (T){ #(dim(x)[1]>(3*dim(x)[2])) {
                                  Penal.i=runlinear(x=x,y=y,
                                                    nPredics=nPredics)
                                  BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
@@ -196,7 +232,6 @@ originDataScreen=function(
                                  EstNoInt.k<-abs(Penal.i$betaNoInt)
                                }
 
-                               rm(Penal.i)
                                gc()
                                if(k==1) {
                                  BetaNoInt.i=BetaNoInt.k
@@ -206,9 +241,7 @@ originDataScreen=function(
                                  BetaNoInt.i=BetaNoInt.i+BetaNoInt.k
                                  EstNoInt.i=EstNoInt.i+EstNoInt.k
                                }
-                               rm(BetaNoInt.k,EstNoInt.k)
                              }
-                             rm(k,x,y,xTildLongTild.i)
                              gc()
                              BetaNoInt.i=BetaNoInt.i/nRuns
                              EstNoInt.i=EstNoInt.i/nRuns
@@ -229,12 +262,10 @@ originDataScreen=function(
                              coef.i[1:(nPredics*(ii-1))]=EstNoInt.i[1:(nPredics*(ii-1))]
                              coef.i[(nPredics*ii+1):nAlphaSelec]=EstNoInt.i[(nPredics*(ii-1)+1):nAlphaNoInt]
                            }
-                           rm(BetaNoInt.i)
                            # create return vector
                            recturnlist=list()
                            recturnlist[[1]]=selection.i
                            recturnlist[[2]]<-coef.i
-                           rm(selection.i,yTildLongTild.i,coef.i)
                            return(recturnlist)
                          }
       parallel::stopCluster(cl)
@@ -247,7 +278,7 @@ originDataScreen=function(
     #   message(round(100*jj/forLoopN,0), " percent of phase 1 analysis has been done")
     # }
   }
-  rm(data)
+
   endT=proc.time()[3]
 
 
@@ -264,14 +295,11 @@ originDataScreen=function(
     estList[[i]]=scr1Resu[[i]][[2]]
   }
 
-  rm(scr1Resu)
-
   selecList<- lapply(selecList, as, "sparseMatrix")
   estList<-lapply(estList,as.matrix)
   scr1ResuSelec=do.call(cbind, selecList)
   scr1ResuEst<-do.call(cbind,estList)
 
-  rm(selecList,estList)
 
 
 
@@ -281,7 +309,6 @@ originDataScreen=function(
 
   testCovCountMat=countOfSelecForAllPred[testCovInd,,drop=FALSE]
   testEstMat<-EstOfAllPred[testCovInd,,drop=FALSE]
-  rm(scr1ResuSelec,testCovInd,countOfSelecForAllPred,EstOfAllPred)
 
   # create overall count of selection for all testCov as a whole
   countOfSelecForAPred=as(matrix(Matrix::colSums(testCovCountMat),nrow=1),"sparseMatrix")
@@ -290,14 +317,11 @@ originDataScreen=function(
 
   colnames(countOfSelecForAPred)=taxaNames
   colnames(estOfSelectForAPred)<-taxaNames
-  rm(taxaNames)
 
   # return results
   results$testCovCountMat=testCovCountMat
   results$testEstMat<-testEstMat
-  rm(testCovCountMat,testEstMat)
   results$countOfSelecForAPred=countOfSelecForAPred
   results$estOfSelectForAPred<-estOfSelectForAPred
-  rm(countOfSelecForAPred,estOfSelectForAPred)
   return(results)
 }

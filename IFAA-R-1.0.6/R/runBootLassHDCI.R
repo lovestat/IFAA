@@ -18,7 +18,6 @@ runBootLassoHDCI=function(
   # check if there are x variables with zero variance
   nObsAll=length(y)
   nBeta=ncol(x)
-
   sdX=apply(x,2,sd)
   xWithNearZeroSd=which(sdX<=zeroSDCut)
 

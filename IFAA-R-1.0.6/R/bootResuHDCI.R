@@ -21,7 +21,9 @@ bootResuHDCI=function(
   paraJobs,
   seed
 ){
-
+  ## ChangePoint
+  np <- reticulate::import("numpy")
+  
   results=list()
   # load data info
   basicInfo=dataInfo(data=data,binPredInd=binPredInd,
@@ -57,18 +59,30 @@ bootResuHDCI=function(
   if(subSamplK==1)maxSubSamplSiz=nToSamplFrom
 
   nRuns=(ceiling(subSamplK/3))
-
-
-  if (dim(x)[1]>(dim(x)[2])) { # (FALSE) { # 
+  
+  ## ChangePoint
+  nRuns = 3 
+  maxSubSamplSiz = nToSamplFrom / 2
+  
+  if (F) { #  (dim(x)[1]>(dim(x)[2])) { # 
     for(k in 1:nRuns){
+
+      
       rowToKeep=sample(nToSamplFrom,maxSubSamplSiz)
       xSub=as((x[rowToKeep,]),"sparseMatrix")
       ySub=(y[rowToKeep])
-
+      
+      ## ChangePoint
+      np$random$seed(as.integer(seed+k-1))
+      rowToKeep=np$random$choice(as.integer(nToSamplFrom), as.integer(maxSubSamplSiz), replace=FALSE)+1
+      rowToKeep <- as.integer(rowToKeep)
+      xSub=as((x[rowToKeep,]),"sparseMatrix")
+      ySub=as((y[rowToKeep]),"sparseVector")
 
       lm_res<-lm(as.vector(ySub)~as.matrix(xSub)-1)
 
-
+      print("Runlinear Phase 2")
+      
 
       rm(xSub,ySub)
 
@@ -132,6 +146,13 @@ bootResuHDCI=function(
       ySub=as((y[rowToKeep]),"sparseVector")
 
 
+      ## ChangePoint
+      np$random$seed(as.integer(seed+k-1))
+      rowToKeep=np$random$choice(as.integer(nToSamplFrom), as.integer(maxSubSamplSiz), replace=FALSE)+1
+      rowToKeep <- as.integer(rowToKeep)
+      xSub=as((x[rowToKeep,]),"sparseMatrix")
+      ySub=as((y[rowToKeep]),"sparseVector")
+      
       c3 <- parallel::makeCluster(paraJobs)
       doParallel::registerDoParallel(c3)
 
@@ -139,7 +160,8 @@ bootResuHDCI=function(
         set.seed(as.numeric(seed)+10^2)
         parallel::clusterSetRNGStream(cl=c3,(as.numeric(seed)+10^3))
       }
-
+      print("RunGlmnet Phase 2")
+      
       bootResu=runBootLassoHDCI(x=as.matrix(xSub),y=as.vector(ySub),bootB=bootB,
                         paraJobs=paraJobs,bootLassoAlpha=bootLassoAlpha,seed=seed)
 

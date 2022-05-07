@@ -9,7 +9,7 @@ setuptools.setup(
     description="Robust association identification and inference for absolute abundance in microbiome analyses",
     long_description=open('README.md').read(),
     packages=setuptools.find_packages(),
-    install_requires=[],
+    install_requires=['joblib>=0.10.3'],
     classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',

@@ -10,6 +10,7 @@ runlinear=function(
   adjust_method="fdr"
 ){
 
+  print("Runlinear Phase I")
   results=list()
 
   nBeta=ncol(x)

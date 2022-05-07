@@ -8,6 +8,7 @@ groupBetaToFullBeta=function(
   newBetaNoInt
 ){
 
+  print("Called groupBetaToFullBeta")
   results=list()
   unSelectList=unique(sort(unSelectList))
   nUnSelec=length(unSelectList)

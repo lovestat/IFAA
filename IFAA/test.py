@@ -9,7 +9,6 @@ from IFAA import *
 import numpy as np
 from loadData import *
 
-IFAA.__all__
 
 res = IFAA(load_dataM(), 
            load_dataC(), 
@@ -34,18 +33,19 @@ from loadData import *
 
 dataC = load_dataC()
 dataC['v4'] = [5]*20 + [6]*20
-# dataC['v5'] = ['5']*10 + ['6']*30
 dataC['v5'] = [5]*10 + [6]*30
+dataC['v6'] = [0]*40
+dataC['v7'] = [0]*40
 
 res_bin = IFAA(load_dataM(), 
            dataC, 
-           testCov = ['v1', 'v4', 'v5'],
+           testCov = ['v1', 'v4', 'v5', 'v6', 'v7'],
            ctrlCov = ['v2', 'v3'],
-           paraJobs = 4,
+           paraJobs = 6,
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
            bootB = 100,
-           sequentialRun=False)
+           sequentialRun=True)
 
 res_bin['sig_results']
 res_bin['full_results']
@@ -54,9 +54,11 @@ res_bin['covriateNames']
 
 
 
-
-
-
+y = np.arange(1, 11)
+y = np.array([7, 3, 10, 1, 2, 6, 8, 5, 4, 9])
+x = np.arange(1, 1001).reshape((10, -1), order = 'F')
+lm_res = OLS(y, x).fit()
+lm_res.summary()
 
 
 
@@ -150,7 +152,25 @@ len(cvglmnetCoef(cvfit, s = 'lambda_min'))
 
 
 
+import time
 
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        func(*args, **kwargs)
 
+        print('The function ran for', time.time() - start)
+    return wrapper
 
+mat = np.random.normal(size=[20,18])
 
+@timer
+def np_svd(x):
+    [np.linalg.svd(x) for _ in range(1000)]
+    
+@timer
+def np_qr(x):
+    [np.linalg.svd(x) for _ in range(1000)]
+
+np_svd(mat)
+np_qr(mat)
