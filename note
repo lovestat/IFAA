@@ -1,0 +1,13 @@
+1. QR decomposition with pivoting is implemented in Python to match R's
+2. Constant columns removal is seperately implemented by sd detection
+3. Phase II: Python lm in BootRestHDCI is also filled with NAs to match R's lm() and Python's Phase I
+5. p.adjust (BY BH) is translated as python, which can handle NAs
+   statsmodels' multipletest is replaced with that
+   In R:
+    BY is used by IFAA()
+    BH is used by runlinear()
+6.
+
+To-Do after R is updated
+
+1. df_cor in runBootLassoHDCI is replaced by QR method

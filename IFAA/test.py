@@ -18,7 +18,7 @@ res = IFAA(load_dataM(),
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
            bootB = 100,
-           sequentialRun=False)
+           sequentialRun=True)
 
 res['sig_results']
 res['full_results']
@@ -45,7 +45,7 @@ res_bin = IFAA(load_dataM(),
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
            bootB = 100,
-           sequentialRun=True)
+           sequentialRun=False)
 
 res_bin['sig_results']
 res_bin['full_results']
@@ -174,3 +174,34 @@ def np_qr(x):
 
 np_svd(mat)
 np_qr(mat)
+
+
+mat = np.array(
+    [ [1,1,2],
+      [1,2,4],
+      [1,3,6],
+      [1,4,8]]
+    )
+
+detectLDcol(mat)
+
+
+mat = np.array(
+    [ [1,1,1,2],
+      [1,1,2,4],
+      [1,1,3,6],
+      [1,1,4,8]]
+    )
+
+detectLDcol(mat)
+
+n = 50
+inputs = np.random.normal(size = n*3).reshape(-1, 3)
+x = np.column_stack( (inputs[:,2],
+                      -.25 * inputs[:,2], 
+                      inputs[:,0] + inputs[:,1],
+                      inputs[:,0], 
+                      inputs[:,1]) )
+detectLDcol(x)
+
+mat = x

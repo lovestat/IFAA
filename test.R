@@ -21,6 +21,7 @@ results$analysisResults$allRefTaxNam
 results$covriateNames
 
 {
+library(IFAA)
 CovData = cbind(dataC,
                 v4 = rep(5:6, each = 20),
                 v5 = c(rep(5, 10), rep(6, 30)),
@@ -75,20 +76,27 @@ length(coef(cvfit, s = cvfit$lambda.min))
 ## v7 = all 0
 
 
-x = data.frame(x1 = 1:10,
-               x2 = 2*(1:10),
-               x3 = 3*(1:10),
-               x4 = 1:10,
-               x5 = rep(5, 10),
-               x6 = rep(10, 10))
-
-x$x4 = 2*x$x1
-x$x5 = x$x1+x$x2
-x$x6 = rnorm(10)
-
-y = sample(10)
-fit = lm(y~as.matrix(x)-1)
+x1 = rep(1, 10)
+y  = 1:10
+dat = data.frame(y, x1)
+fit = lm(y~x1, dat)
 summary(fit)
 
 fit$coefficients
 summary(fit)$coefficients
+
+n <- 50
+
+inputs <- matrix(rnorm(n*3), n, 3)
+
+x <- cbind(inputs[,3],-.25 * inputs[,3], inputs[,1] + inputs[,2],inputs[,1], inputs[,2])
+
+qr.x =qr(x)
+
+piv=qr.x$pivot
+
+rank.x= Matrix::rankMatrix(x)
+
+newX=x[, piv[1:rank.x]]
+
+

@@ -12,7 +12,6 @@ runBootLassoHDCI=function(
   bootLassoAlpha,
   seed
 ){
-
   results=list()
 
   # check if there are x variables with zero variance

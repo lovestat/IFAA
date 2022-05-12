@@ -23,7 +23,7 @@ bootResuHDCI=function(
 ){
   ## ChangePoint
   np <- reticulate::import("numpy")
-  
+
   results=list()
   # load data info
   basicInfo=dataInfo(data=data,binPredInd=binPredInd,
@@ -63,8 +63,8 @@ bootResuHDCI=function(
   ## ChangePoint
   nRuns = 3 
   maxSubSamplSiz = nToSamplFrom / 2
-  
-  if (F) { #  (dim(x)[1]>(dim(x)[2])) { # 
+
+  if (T) { #  (dim(x)[1]>(dim(x)[2])) { # 
     for(k in 1:nRuns){
 
       
