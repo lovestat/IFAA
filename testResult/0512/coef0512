@@ -9,45 +9,6 @@
 ################################################
 
 # =================================== #
-#           dataC + v4 + v5           #
-# =================================== #
-1. RunLinear Phase I + CI INFERENCE  RunLinear  (√) 
-
-R:
-
-Python:
-
-
-2. RunLinear Phase I + CI INFERENCE  RunGlmnet
-
-R:
-$v1
-             estimate      SE est     CI low      CI up  adj p-value
-rawCount18 0.02929557 0.006517021 0.01621022 0.04175648 6.242276e-04
-rawCount36 0.02916496 0.005125945 0.01901102 0.03910435 1.715013e-06
-rawCount41 0.03052537 0.005068397 0.02084277 0.04071052 4.622858e-07
-[1] "rawCount8"  "rawCount57"
-
-Python:
-{'v1':             estimate    SE est    CI low     CI up   adj p-value
- rawCount18  0.018712  0.004179  0.006433  0.022813  6.772591e-04
- rawCount36  0.021300  0.003323  0.011928  0.024954  3.937976e-08
- rawCount41  0.035715  0.006017  0.031622  0.055208  3.940972e-07}
-array(['rawCount8', 'rawCount56'], dtype='<U10')
-
-3. RunGlmnet Phase I + CI INFERENCE  RunLinear (√)
-
-R: 
-
-Python:
-
-4. RunGlmnet Phase I + CI INFERENCE  RunGlmnet
-
-R:
-
-Python:
-
-# =================================== #
 #    dataC + v4 + v5 + v6 + v7        #
 # =================================== #
 
