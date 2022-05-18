@@ -1,0 +1,15 @@
+
+
+The cause of {} resutls in python on 05 04 is x.copy() y.copy() in
+
+line 2293  (optional)
+    ## Bootstrap
+    bootResu = bootLassoCI(
+        x.copy(),
+        y.copy(),
+        seed=seed,
+and line 2368 (required)
+ cvResul = cvglmnet(
+        x=x.copy(),
+        y=y.copy(),
+        alpha=alpha,

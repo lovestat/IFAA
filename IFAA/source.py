@@ -159,7 +159,9 @@ def IFAA(
 
     AUTHORS:
     -------
-        Zhigang Li, Quran Wu, Shangchen Song 
+        Shangchen Song (Python)
+        
+        Zhigang Li, Quran Wu (R)
 
     REFERENCES:
     ---------- 
@@ -1864,7 +1866,7 @@ def detectCcol(mat, tol=1e-19):
 
 def multipleTest(p, method):
 
-    # R's p.adjust(*, method = "BH")
+    # R's p.adjust(*, method)
     p=p.copy()
     p0 = p
     nna = np.isfinite(p)
