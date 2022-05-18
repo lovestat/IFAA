@@ -1732,7 +1732,7 @@ def forEachUnitRun(
         x = xTildLongTild_i[rowToKeep, :]
         y = yTildLongTild_i[rowToKeep]
 
-        if False:  # x.shape[0] > (3 * x.shape[1]): # ChangePoint
+        if True:  # x.shape[0] > (3 * x.shape[1]): # ChangePoint
             Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
             BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
             EstNoInt_k = np.abs(Penal_i["coef_est_noint"])
@@ -1865,7 +1865,7 @@ def detectCcol(mat, tol=1e-19):
 def multipleTest(p, method):
 
     # R's p.adjust(*, method = "BH")
-
+    p=p.copy()
     p0 = p
     nna = np.isfinite(p)
     if not all(nna):
@@ -2206,9 +2206,7 @@ def bootResuHDCI(
                     p_value_unadj[j] = (
                         1 - scipy.stats.norm.cdf(np.abs(boot_est_par[j] / se_est[j]))
                     ) * 2
-
-            p_value_adj = multipletests(p_value_unadj, method=adjust_method)[1]
-
+            p_value_adj = multipleTest(p_value_unadj, method=adjust_method)
             p_value_save_mat[ii, :] = p_value_adj
             est_save_mat[ii,] = boot_est_par
             CI_low_mat[ii,] = boot_est_CI_low
@@ -2306,8 +2304,8 @@ def runBootLassoHDCI(
     seed,
     nfolds=10,
     lambdaOPT=np.empty(0),
-    zeroSDCut=10 ** (-20),
-    correCut=0.996,
+    zeroSDCut=10 ** (-20) #,
+    #correCut=0.996,
 ):
     results = {}
     nBeta = x.shape[1]
@@ -2328,13 +2326,13 @@ def runBootLassoHDCI(
     xWithNearZeroSd = which(sdX <= zeroSDCut)
 
     # ChangePoint Cor
-    df_cor = np.corrcoef(x, rowvar=False)
-    excluCorColumns = which(
-        np.apply_along_axis(
-            lambda x: np.any(np.abs(x) >= correCut), 0, np.tril(df_cor, -1)
-        )
-    )
-    xWithNearZeroSd = np.sort(np.unique(np.hstack((xWithNearZeroSd, excluCorColumns))))
+    # df_cor = np.corrcoef(x, rowvar=False)
+    # excluCorColumns = which(
+    #     np.apply_along_axis(
+    #         lambda x: np.any(np.abs(x) >= correCut), 0, np.tril(df_cor, -1)
+    #     )
+    # )
+    xWithNearZeroSd = np.sort(np.unique(np.hstack((xWithNearZeroSd))))  #, excluCorColumns))))
 
     if len(xWithNearZeroSd) > 0:
         x = np.delete(x, xWithNearZeroSd, axis=1)

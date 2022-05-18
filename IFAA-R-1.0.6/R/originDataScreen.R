@@ -124,7 +124,7 @@ originDataScreen=function(
                                y=yTildLongTild.i[rowToKeep]
 
 
-                               if (F){ # (dim(x)[1]>(3*dim(x)[2])) {
+                               if (T){ # (dim(x)[1]>(3*dim(x)[2])) {
                                  Penal.i=runlinear(x=x,y=y,
                                                    nPredics=nPredics)
                                  BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")
@@ -220,7 +220,7 @@ originDataScreen=function(
                                x=as((xTildLongTild.i[rowToKeep,]),"sparseMatrix")
                                y=yTildLongTild.i[rowToKeep]
 
-                               if (F){ #(dim(x)[1]>(3*dim(x)[2])) {
+                               if (T){ #(dim(x)[1]>(3*dim(x)[2])) {
                                  Penal.i=runlinear(x=x,y=y,
                                                    nPredics=nPredics)
                                  BetaNoInt.k=as((0+(Penal.i$betaNoInt!=0)),"sparseVector")

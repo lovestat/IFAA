@@ -64,7 +64,7 @@ bootResuHDCI=function(
   nRuns = 3 
   maxSubSamplSiz = nToSamplFrom / 2
 
-  if (T) { #  (dim(x)[1]>(dim(x)[2])) { # 
+  if (F) { #  (dim(x)[1]>(dim(x)[2])) { # 
     for(k in 1:nRuns){
 
       
@@ -216,6 +216,7 @@ bootResuHDCI=function(
           p_value_unadj[j]<-(1-pnorm(abs(boot_est_par[j]/se_est[j])))*2
         }
       }
+
       p_value_adj<-p.adjust(p_value_unadj,adjust_method)
       p_value_save_mat[ii,]<-p_value_adj
       est_save_mat[ii,]<-boot_est_par
