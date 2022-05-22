@@ -8,9 +8,8 @@ IFAA is a robust approach to make inference on the association of covariates wit
 
 The following mixed effect model is used for the association: 
 
-$$
-\log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k>0=\beta^{0k}+X_i^T\beta^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k,\hspace{0.2cm}k=1,...,K+1,
-$$
+$\log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k>0=\beta^{0k}+X_i^T\beta^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k,\hspace{0.2cm}k=1,...,K+1$
+
 where
 
 - $\mathcal{Y}_i^k$ is the AA of taxa $k$ in subject $i$ in the entire ecosystem. 
