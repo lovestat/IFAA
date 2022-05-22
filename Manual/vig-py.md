@@ -5,14 +5,7 @@ output:
     keep_md: true
 ---
 
-```{r, include = F}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
 
-library(IFAA)
-```
 
 # IFAA
 [![PyPI version](https://badge.fury.io/py/IFAA.svg)](https://badge.fury.io/py/IFAA)
@@ -47,13 +40,15 @@ The challenge in microbiome analysis is that we can not oberve $\mathcal{Y}_i^k$
 
 To install, type the following command in Python console:
 
-```{python eval=F}
+
+```python
 pip install IFAA
 ```
 
 The package could be also installed from GitHub using the following code: 
 
-```{python eval=F}
+
+```python
 pip install git+https://github.com/lovestat/IFAA
 ```
 
@@ -107,7 +102,8 @@ The covariates data used in the analyses including `testCov` and `ctrlCov` is sa
 ## Examples
 
 The example datasets `dataM` and `dataC` are included in the package. They could be accessed by: 
-```{python, eval = F}
+
+```python
 import numpy as np
 from loadData import *
 ```
@@ -119,7 +115,8 @@ Both the microbiome data `dataM` and the covariates data `dataC` contain 40 samp
 
 Next we analyze the data to test the association between microbiome and the variable `"v1"` while adjusting for the variables (potential confounders) `"v2"` and `"v3"`.
 
-```{python, eval=F}
+
+```python
 >>> res = IFAA(load_dataM().iloc[:,:],
 ...            load_dataC().iloc[:,:],
 ...            testCov = ['v1'],
@@ -133,7 +130,8 @@ Next we analyze the data to test the association between microbiome and the vari
 
 
 In this example, we are only interested in testing the associations with `"v1"` which is why `testCov=c("v1")`. The variables `"v2" and "v3"` are adjusted as potential confounders in the analyses. The final analysis results are saved in the list `sig_results`: 
-```{python,eval=F}
+
+```python
 res['sig_results']
 # {'v1':             estimate    SE est    CI low     CI up   adj p-value
 #  rawCount18  0.028144  0.005027  0.018292  0.037997  1.935964e-06
@@ -149,7 +147,8 @@ The interpretation is that
 
 All the analyzed covariates including `testCov` and `ctrlCov` can be extracted using the object `covariatesData`. The covariates data of the first 10 subjects can extracted as follows:
 
-```{python,eval=F}
+
+```python
 res_bin['covariatesData'].iloc[0:10, :]
 #    id          x1  x2  x3  x4  x5          x6          x7
 # 0   1   58.069691   0   0   0   0  -49.903757  -15.306430
