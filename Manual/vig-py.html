@@ -168,6 +168,8 @@ pre code {
 </div>
 
 
+<div id="overview" class="section level2">
+<h2>Overview</h2>
 <p>IFAA is a robust approach to make inference on the association of covariates with the absolute abundance (AA) of microbiome in an ecosystem. It can be also directly applied to relative abundance (RA) data to make inference on AA because the ratio of two RA is equal ratio of their AA. This algorithm can estimate and test the associations of interest while adjusting for potential confounders. High-dimensional covariates are handled with regularization. The estimates of this method have easy interpretation like a typical regression analysis. High-dimensional covariates are handled with regularization and it is implemented by parallel computing. False discovery rate is automatically controlled by this approach. Zeros do not need to be imputed by a positive value for the analysis. The IFAA package also offers the ‘MZILN’ function for estimating and testing associations of abundance ratios with covariates.</p>
 <p>The following mixed effect model is used for the association: <span class="math display">\[
 \log(\mathcal{Y}_i^k)|\mathcal{Y}_i^k&gt;0=\beta^{0k}+X_i^T\beta^k+W_i^T\gamma^k+Z_i^Tb_i+\epsilon_i^k,\hspace{0.2cm}k=1,...,K+1,
@@ -181,6 +183,7 @@ pre code {
 <li><p><span class="math inline">\(\beta^k\)</span> is the regression coefficients that will be estimated and tested with the <code>IFAA()</code> function.</p></li>
 </ul>
 <p>The challenge in microbiome analysis is that we can not oberve <span class="math inline">\(\mathcal{Y}_i^k\)</span>. What is observed is its small proportion: <span class="math inline">\(Y_i^k=C_i\mathcal{Y}^k_i\)</span> where <span class="math inline">\(C_i\)</span> is an unknown number between 0 and 1 that denote the observed proportion. The IFAA method successfuly addressed this challenge.</p>
+</div>
 <div id="package-installation" class="section level2">
 <h2>Package installation</h2>
 <p>To install, type the following command in Python console:</p>
