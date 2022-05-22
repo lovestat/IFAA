@@ -1,6 +1,20 @@
-# IFAA
-[![PyPI version](https://badge.fury.io/py/IFAA.svg)](https://badge.fury.io/py/IFAA)
-
+Metadata-Version: 2.1
+Name: IFAA
+Version: 0.0.9001
+Summary: Robust association identification and inference for absolute abundance in microbiome analyses
+Home-page: https://github.com/lovestat/IFAA
+Author: Zhigang Li, Quran Wu, Shangchen Song
+Author-email: lzg2151@gmail.com, s.song@ufl.edu
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Description-Content-Type: text/markdown
 
 ## Overview
 
@@ -158,3 +172,5 @@ res_bin['covariatesData'].iloc[0:10, :]
 - Zhigang Li, Lu Tian, A. James O'Malley, Margaret R. Karagas, Anne G. Hoen, Brock C. Christensen, Juliette C. Madan, Quran Wu, Raad Z. Gharaibeh, Christian Jobin, Hongzhe Li (2020) IFAA: Robust association identification and Inference For Absolute Abundance in microbiome analyses. arXiv:1909.10101v3
 
 - Zhigang Li, Katherine Lee, Margaret Karagas, Juliette Madan, Anne Hoen, James O’Malley and Hongzhe Li (2018 ) Conditional regression based on a multivariate zero-inflated logistic normal model for modeling microbiome data. Statistics in Biosciences  10(3):587-608
+
+

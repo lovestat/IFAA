@@ -30,7 +30,6 @@ res['covriateNames']
 ## Test Binary Var
 import numpy as np
 from loadData import *
-
 dataC = load_dataC()
 dataC['v4'] = [5]*20 + [6]*20
 dataC['v5'] = [5]*10 + [6]*30
@@ -45,14 +44,14 @@ res_bin = IFAA(load_dataM(),
            linkIDname="id",
            refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
            bootB = 100,
-           sequentialRun=False)
+           sequentialRun=True)
 
 res_bin['sig_results']
 res_bin['full_results']
 res_bin['analysisResults']['finalizedBootRefTaxon']
 res_bin['covriateNames']
 
-
+res_bin['covariatesData'].iloc[0:10, :]
 
 y = np.arange(1, 11)
 y = np.array([7, 3, 10, 1, 2, 6, 8, 5, 4, 9])
@@ -60,6 +59,27 @@ x = np.arange(1, 1001).reshape((10, -1), order = 'F')
 lm_res = OLS(y, x).fit()
 lm_res.summary()
 
+
+
+
+## Test Binary Var
+import numpy as np
+from IFAA import IFAA, load_dataM, load_dataC
+dataC = load_dataC()
+dataC['v4'] = [5]*20 + [6]*20
+dataC['v5'] = [5]*10 + [6]*30
+dataC['v6'] = [0]*40
+dataC['v7'] = [0]*40
+
+res_bin = IFAA(load_dataM(), 
+           dataC, 
+           testCov = ['v1', 'v4', 'v5', 'v6', 'v7'],
+           ctrlCov = ['v2', 'v3'],
+           paraJobs = 6,
+           linkIDname="id",
+           refTaxa = ["rawCount" + str(i + 1) for i in range(40)],
+           bootB = 100,
+           sequentialRun=True)
 
 
 

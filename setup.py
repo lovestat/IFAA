@@ -2,12 +2,13 @@ import setuptools
 
 setuptools.setup(
     name="IFAA",
-    version="0.1.0",
+    version="0.0.9001",
     url="https://github.com/lovestat/IFAA",
     author="Zhigang Li, Quran Wu, Shangchen Song",
     author_email="lzg2151@gmail.com, s.song@ufl.edu",
     description="Robust association identification and inference for absolute abundance in microbiome analyses",
     long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
     install_requires=['joblib>=0.10.3', 'scipy', 'numpy', 'pandas', 'glmnet_py', 'matplotlib', 
                       'tqdm', 'statsmodels'],
