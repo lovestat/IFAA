@@ -3,7 +3,7 @@
 """
 Created on Tue Mar 29 21:26:38 2022
 
-@author: Shangchen
+@author: ss
 """
 import joblib
 import contextlib
@@ -161,7 +161,7 @@ def IFAA(
     -------
         Shangchen Song (Python)
         
-        Zhigang Li, Quran Wu (R)
+        Zhigang Li, Quran Wu (Theroy and R)
 
     REFERENCES:
     ---------- 
@@ -1725,8 +1725,8 @@ def forEachUnitRun(
     nRuns = np.ceil(subSamplK / 3).astype(int)
 
     # ChangePoint
-    nRuns = 3
-    maxSubSamplSiz = int(nToSamplFrom / 2)
+    # nRuns = 3
+    # maxSubSamplSiz = int(nToSamplFrom / 2)
 
     for k in range(nRuns):
         np.random.seed(int(seed + k))
@@ -1734,7 +1734,7 @@ def forEachUnitRun(
         x = xTildLongTild_i[rowToKeep, :]
         y = yTildLongTild_i[rowToKeep]
 
-        if True:  # x.shape[0] > (3 * x.shape[1]): # ChangePoint
+        if x.shape[0] > (3 * x.shape[1]): # ChangePoint
             Penal_i = runlinear(x=x, y=y, nPredics=nPredics)
             BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
             EstNoInt_k = np.abs(Penal_i["coef_est_noint"])
@@ -1743,16 +1743,13 @@ def forEachUnitRun(
             BetaNoInt_k = (Penal_i["betaNoInt"] != 0).astype(int)
             EstNoInt_k = np.abs(Penal_i["betaNoInt"])
 
-        # rm(Penal_i)
         if k == 0:
             BetaNoInt_i = BetaNoInt_k
             EstNoInt_i = EstNoInt_k
         if k > 0:
             BetaNoInt_i = BetaNoInt_i + BetaNoInt_k
             EstNoInt_i = EstNoInt_i + EstNoInt_k
-        # rm(BetaNoInt_k, EstNoInt_k)
 
-    # rm(k, x, y, xTildLongTild_i)
     BetaNoInt_i = BetaNoInt_i / nRuns
     EstNoInt_i = EstNoInt_i / nRuns
     selection_i = np.zeros(nAlphaSelec)
@@ -2057,10 +2054,10 @@ def bootResuHDCI(
     nRuns = math.ceil(subSamplK / 3)
 
     # ChangePoint
-    nRuns = 3
-    maxSubSamplSiz = int(nToSamplFrom / 2)
+    # nRuns = 3
+    # maxSubSamplSiz = int(nToSamplFrom / 2)
 
-    if True:  # x.shape[0] > x.shape[1]:  #   ## ChangePoint
+    if x.shape[0] > x.shape[1]:  #  True:  #  ## ChangePoint
         for k in range(nRuns):
             np.random.seed(int(seed + k))
             rowToKeep = np.random.choice(nToSamplFrom, maxSubSamplSiz, replace=False)
@@ -2334,6 +2331,7 @@ def runBootLassoHDCI(
     #         lambda x: np.any(np.abs(x) >= correCut), 0, np.tril(df_cor, -1)
     #     )
     # )
+    
     xWithNearZeroSd = np.sort(np.unique(np.hstack((xWithNearZeroSd))))  #, excluCorColumns))))
 
     if len(xWithNearZeroSd) > 0:

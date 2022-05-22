@@ -9,7 +9,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r, include = F}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
 
+library(IFAA)
+```
 
 IFAA is a robust approach to make inference on the association of covariates with the absolute abundance (AA) of microbiome in an ecosystem. It can be also directly applied to relative abundance (RA) data to make inference on AA because the ratio of two RA is equal ratio of their AA. This algorithm can estimate and test the associations of interest while adjusting for potential confounders. High-dimensional covariates are handled with regularization. The estimates of this method have easy interpretation like a typical regression analysis. High-dimensional covariates are handled with regularization and it is implemented by parallel computing. False discovery rate is automatically controlled by this approach. Zeros do not need to be imputed by a positive value for the analysis. The IFAA package also offers the 'MZILN' function for estimating and testing associations of abundance ratios with covariates.
 
@@ -37,15 +44,13 @@ The challenge in microbiome analysis is that we can not oberve $\mathcal{Y}_i^k$
 
 To install, type the following command in Python console:
 
-
-```python
+```{python eval=F}
 pip install IFAA
 ```
 
 The package could be also installed from GitHub using the following code: 
 
-
-```python
+```{python eval=F}
 pip install git+https://github.com/lovestat/IFAA
 ```
 
@@ -99,8 +104,7 @@ The covariates data used in the analyses including `testCov` and `ctrlCov` is sa
 ## Examples
 
 The example datasets `dataM` and `dataC` are included in the package. They could be accessed by: 
-
-```python
+```{python, eval = F}
 import numpy as np
 from loadData import *
 ```
@@ -112,8 +116,7 @@ Both the microbiome data `dataM` and the covariates data `dataC` contain 40 samp
 
 Next we analyze the data to test the association between microbiome and the variable `"v1"` while adjusting for the variables (potential confounders) `"v2"` and `"v3"`.
 
-
-```python
+```{python, eval=F}
 >>> res = IFAA(load_dataM().iloc[:,:],
 ...            load_dataC().iloc[:,:],
 ...            testCov = ['v1'],
@@ -127,8 +130,7 @@ Next we analyze the data to test the association between microbiome and the vari
 
 
 In this example, we are only interested in testing the associations with `"v1"` which is why `testCov=c("v1")`. The variables `"v2" and "v3"` are adjusted as potential confounders in the analyses. The final analysis results are saved in the list `sig_results`: 
-
-```python
+```{python,eval=F}
 res['sig_results']
 # {'v1':             estimate    SE est    CI low     CI up   adj p-value
 #  rawCount18  0.028144  0.005027  0.018292  0.037997  1.935964e-06
@@ -144,8 +146,7 @@ The interpretation is that
 
 All the analyzed covariates including `testCov` and `ctrlCov` can be extracted using the object `covariatesData`. The covariates data of the first 10 subjects can extracted as follows:
 
-
-```python
+```{python,eval=F}
 res_bin['covariatesData'].iloc[0:10, :]
 #    id          x1  x2  x3  x4  x5          x6          x7
 # 0   1   58.069691   0   0   0   0  -49.903757  -15.306430
