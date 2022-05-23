@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="IFAA",
-    version="0.0.9001",
+    version="0.0.9003",
     url="https://github.com/lovestat/IFAA",
     author="Zhigang Li, Quran Wu, Shangchen Song",
     author_email="lzg2151@gmail.com, s.song@ufl.edu",
@@ -10,16 +10,11 @@ setuptools.setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
-    install_requires=['joblib>=0.10.3', 'scipy', 'numpy', 'pandas', 'glmnet_py', 'matplotlib', 
-                      'tqdm', 'statsmodels'],
+    install_requires=['joblib>=0.10.3', 'numpy>=1.22.3', 'scipy>=1.8.0', 'pandas>=1.4.1', 'glmnet_py>=0.1.0b2', 'matplotlib>=3.5.1', 
+                      'tqdm>=4.63.1', 'statsmodels>=0.13.2'],
     classifiers=[
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
+        'Programming Language :: Python :: 3'
     ],
     include_package_data=True,
     package_data={'': ['data/*.csv']},
