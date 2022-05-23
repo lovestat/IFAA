@@ -3,8 +3,8 @@ package:
   version: "0.0.9000"
 
 source:
-  url: https://files.pythonhosted.org/packages/d0/d5/7902f323bd3a36b0050825d6f1b3c03a93cbf79e1fb7001e6e07f245b07c/IFAA-0.0.9004.tar.gz
-  sha256: e086496c69a9c89a30e4d57efeb10d2f27d40abfb765067ff8fa18981f0eb49f
+  git_url: https://github.com/lovestat/IFAA
+  git_rev: v0.0.9002
 
 requirements:
   host:

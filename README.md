@@ -1,10 +1,19 @@
-# IFAA
-[![PyPI version](https://badge.fury.io/py/IFAA.svg)](https://badge.fury.io/py/IFAA)
+---
+title: "ifaa"
+output:
+  html_document:
+    keep_md: true
+---
+
+
+
+# ifaa
+[![PyPI version](https://badge.fury.io/py/ifaa.svg)](https://badge.fury.io/py/ifaa)
 
 
 ## Overview
 
-IFAA is a robust approach to make inference on the association of covariates with the absolute abundance (AA) of microbiome in an ecosystem. It can be also directly applied to relative abundance (RA) data to make inference on AA because the ratio of two RA is equal ratio of their AA. This algorithm can estimate and test the associations of interest while adjusting for potential confounders. High-dimensional covariates are handled with regularization. The estimates of this method have easy interpretation like a typical regression analysis. High-dimensional covariates are handled with regularization and it is implemented by parallel computing. False discovery rate is automatically controlled by this approach. Zeros do not need to be imputed by a positive value for the analysis. The IFAA package also offers the 'MZILN' function for estimating and testing associations of abundance ratios with covariates.
+`ifaa` is a robust approach to make inference on the association of covariates with the absolute abundance (AA) of microbiome in an ecosystem. It can be also directly applied to relative abundance (RA) data to make inference on AA because the ratio of two RA is equal ratio of their AA. This algorithm can estimate and test the associations of interest while adjusting for potential confounders. High-dimensional covariates are handled with regularization. The estimates of this method have easy interpretation like a typical regression analysis. High-dimensional covariates are handled with regularization and it is implemented by parallel computing. False discovery rate is automatically controlled by this approach. Zeros do not need to be imputed by a positive value for the analysis. The IFAA package also offers the 'MZILN' function for estimating and testing associations of abundance ratios with covariates.
 
 The following mixed effect model is used for the association: 
 
@@ -32,14 +41,14 @@ To install, type the following command in Python console:
 
 
 ```python
-pip install IFAA
+pip install ifaa
 ```
 
 The package could be also installed from GitHub using the following code: 
 
 
 ```python
-pip install git+https://github.com/lovestat/IFAA
+pip install git+https://github.com/lovestat/ifaa
 ```
 
 ## Input for IFAA() function

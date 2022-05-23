@@ -6,3 +6,5 @@ Manual/
 **/__pycache__
 IFAA.egg-info/
 dist/
+conda/
+conda-forge/

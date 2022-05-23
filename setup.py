@@ -1,9 +1,10 @@
 import setuptools
 
 setuptools.setup(
-    name="IFAA",
-    version="0.0.9004",
-    url="https://github.com/lovestat/IFAA",
+    name="ifaa",
+    version="0.0.9000",
+    license = 'GPL-2',
+    url="https://github.com/lovestat/ifaa",
     author="Zhigang Li, Quran Wu, Shangchen Song",
     author_email="lzg2151@gmail.com, s.song@ufl.edu",
     description="Robust association identification and inference for absolute abundance in microbiome analyses",
