@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="IFAA",
-    version="0.0.9003",
+    version="0.0.9004",
     url="https://github.com/lovestat/IFAA",
     author="Zhigang Li, Quran Wu, Shangchen Song",
     author_email="lzg2151@gmail.com, s.song@ufl.edu",

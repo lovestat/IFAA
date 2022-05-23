@@ -4,3 +4,5 @@
 .Ruserdata
 Manual/
 **/__pycache__
+IFAA.egg-info/
+dist/

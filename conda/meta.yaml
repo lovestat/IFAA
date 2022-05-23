@@ -3,8 +3,8 @@ package:
   version: "0.0.9000"
 
 source:
-  url: https://files.pythonhosted.org/packages/c4/b1/0840f69317d57fa8b1381a97a6dfd44cda7003f40290a5823f8b2226deab/IFAA-0.0.9002.tar.gz
-  sha256: ac6a9c6c10f425cd4d44ca2524e7e9089ebf9502b797895e7b5576b57d1bd77f
+  url: https://files.pythonhosted.org/packages/d0/d5/7902f323bd3a36b0050825d6f1b3c03a93cbf79e1fb7001e6e07f245b07c/IFAA-0.0.9004.tar.gz
+  sha256: e086496c69a9c89a30e4d57efeb10d2f27d40abfb765067ff8fa18981f0eb49f
 
 requirements:
   host:
@@ -31,4 +31,4 @@ about:
 
 extra:
   recipe-maintainers:
-    - Shangchen Song
+    - Shangchen Song 
