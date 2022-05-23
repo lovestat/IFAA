@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="ifaa",
-    version="0.0.9000",
+    version="0.0.9001",
     license = 'GPL-2',
     url="https://github.com/lovestat/ifaa",
     author="Zhigang Li, Quran Wu, Shangchen Song",
