@@ -1,12 +1,3 @@
----
-title: "ifaa"
-output:
-  html_document:
-    keep_md: true
----
-
-
-
 # ifaa
 [![PyPI version](https://badge.fury.io/py/ifaa.svg)](https://badge.fury.io/py/ifaa)
 
